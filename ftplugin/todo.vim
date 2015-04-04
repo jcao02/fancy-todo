@@ -48,17 +48,17 @@ fu! s:insert_new_item()
 endfu
 
 " Adds the date and hour when the item was marked as done
-fu! s:mark_item_as_done() " {{{
-    let date=strftime("%Y-%m-%d %H:%M:%S")
-    :call s:preserve(':silent! :s/^\(\s*[-+*]\?\s*\)\[ \]/\1[x]\ ('.date.')/')
+fu! s:mark_item_as_done() 
+    let l:date=strftime("%Y-%m-%d %H:%M:%S")
+    :call s:preserve(':silent! :s/^\(\s*[-+*]\?\s*\)\[ \]/\1[x]\ ('.l:date.')/')
 
-endfu "}}}
+endfu
 
 " Unmarks the item and removes the date
 fu! s:mark_item_as_undone()
-    let checkbox_regex='^\(\s*[-+*]\?\s*\)\[x\]\s'
-    let date_regex='(\d\{4}-\d\{2}-\d\{2}\s\d\{2}:\d\{2}:\d\{2})'
-    :call s:preserve(':silent! :s/'.checkbox_regex.date_regex.'/\1[ ]/')
+    let l:checkbox_regex='^\(\s*[-+*]\?\s*\)\[x\]\s'
+    let l:date_regex='(\d\{4}-\d\{2}-\d\{2}\s\d\{2}:\d\{2}:\d\{2})'
+    :call s:preserve(':silent! :s/'.l:checkbox_regex.l:date_regex.'/\1[ ]/')
 endfu
 
 " Tags the item with a priority (TODO: check if there was a priority before)
