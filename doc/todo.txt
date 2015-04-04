@@ -1,0 +1,23 @@
+*todo.txt* Simple .todo .td .done .dn syntax, maps and functions 
+
+===============================================================================
+1. Description
+
+This is a plugin to make your todo's files fancier and readible. 
+Each todo item has the form: 
+    [ ] (file:lineno) Item description (for pending tasks)
+    [x] (date time) (file:lineno) Item description (for done tasks)
+===============================================================================
+2. Maps
+
+    <Leader>i : Insert a new item in the current line
+    <Leader>o : Insert a new item in the line below
+    <Leader>O : Insert a new item in the line above
+    <Leader>x : Mark current item (if any) as done inserting the date
+    <Leader>X : Mark current item (if any) as undone removing the date
+    <Leader>s : Sort Items by priority
+    <Leader>u : Increase current item priority (if any). 
+    <Leader>d : Decrease current item priority (if any). 
+    <Leader>a : Tag current item with priority (A)
+    <Leader>b : Tag current item with priority (B)
+    <Leader>c : Tag current item with priority (C)
