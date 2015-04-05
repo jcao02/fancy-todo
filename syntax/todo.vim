@@ -38,7 +38,7 @@ syn match ItemPriorZ '.\+([Z])$' contains=ItemDate,ItemCheckBox,ItemFileName
 syn match ItemDate '(\d\{4}-\d\{2}-\d\{2}\s\d\{2}:\d\{2}:\d\{2})' contains=NONE
 syn match ItemCheckBox '\s*\[x\ \]' contains=NONE
 syn match ItemDone '\s*\[x\].\+$' contains=ItemDate,ItemCheckBox,ItemFileName
-syn match ItemFileName '(\w\+[./]*\w\+:\d\+)' contains=NONE
+syn match ItemFileName '([a-zA-Z_\-.\/]*:\d\+)' contains=NONE
 
 syn match TodoComment '#.\+$' contains=ALL
 
