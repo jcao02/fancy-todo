@@ -1,28 +1,37 @@
 " File:          simple-todo.vim
-" Author:        Vital Kudzelka
-" Modifications: Juan Carlos Arocha
-" Description:   Add some useful mappings to manage simple TODO list
+" Author:        Juan Carlos Arocha
+" Description:   Add functions and maps to handle todo lists
 
+" TODO: take into account the 80's column rule
 
 " Guard {{{
 
 if exists('g:loaded_fancy_todo') || &cp
     finish
 endif
-let g:fancy_simple_todo = 1
+let g:loaded_fancy_todo = 1
 
 " }}}
 
 " Config options {{{
 
-" Do map key bindings? (yes)
-if !exists('g:fancy_todo_map_keys')
-    let g:fancy_todo_map_keys = 1
+" TODO: take into account the max_nested_items variable
+if !exists('g:max_nested_items')
+    let g:max_nested_items = 4
+endif
+
+if !exists('g:tab_size_for_indentation_level')
+    let g:tab_size_for_indentation_level = 4
 endif
 
 " }}}
 
+" We will use a dictionary to handle subitems with the form
+" item_lineno -> [ subitem1_lineno, subitem2_lineno, ... ]
+
 " Private functions {{{
+
+" Preserves the cursor and last search
 fu! s:preserve(command)
     let _s=@/
     let l = line(".")
@@ -35,30 +44,99 @@ fu! s:preserve(command)
 endfu
 
 
-fu! s:get_list_marker(linenr) " {{{
-    return substitute(getline(a:linenr), '^\s*\([-+*]\?\s*\).*', '\1', '')
-endfu " }}}
+" Checks if the string string contains a todo item
+fu! ContainsItem(string)
+    let l:item = matchstr(a:string, '    - \[[x\ ]\]')
+    return l:item != ""
+endfu
 
-fu! s:insert_new_item()
-    if mode() == "n"
-        execute 'a    [ ]'
+
+
+" Returns the indentation level of an item (lineno)
+fu! IndentationLevel(item, tab)
+    let l:char   = a:item[0]
+    let l:spaces = 0
+    let l:index  = 1
+
+    while (l:char != '-' && l:index < len(a:item))
+        let l:char = a:item[l:index]
+        let l:spaces += 1
+        let l:index += 1
+    endwhile
+
+    return l:spaces / a:tab
+endfu
+
+" Inserts a new item in the current line. 
+" If there's already an item, moves the item to the next line
+fu! s:insert_new_item(lineno)
+    exe 'normal '.a:lineno.'G'
+    let l:spaces = repeat(' ', g:tab_size_for_indentation_level)
+    if ContainsItem(getline(a:lineno))
+        let l:indentation_level = IndentationLevel(getline(a:lineno), g:tab_size_for_indentation_level)
+        let l:spaces .= repeat(' ', (l:indentation_level - 1) * g:tab_size_for_indentation_level)
+    endif
+    put! = l:spaces.'- [ ]' 
+endfu
+
+" Inserts a new subitem for the item in the current line. 
+" If there's already a subitem, moves it to the next line
+fu! s:insert_new_subitem(item_lineno)
+    let l:item = getline(a:item_lineno)
+    
+    if ContainsItem(l:item)
+        let l:indentation_level = IndentationLevel(l:item, g:tab_size_for_indentation_level)
+
+        let l:spaces = repeat(' ', (l:indentation_level + 1) * g:tab_size_for_indentation_level)
+
+        exe 'normal! '.a:item_lineno.'G'
+        put = l:spaces.'- [ ]'
     else
-        execute '    [ ]'
+        echom "There's no item under cursor"
     endif
 endfu
 
-" Adds the date and hour when the item was marked as done
-fu! s:mark_item_as_done() 
-    let l:date=strftime("%Y-%m-%d %H:%M:%S")
-    :call s:preserve(':silent! :s/^\(\s*[-+*]\?\s*\)\[ \]/\1[x]\ ('.l:date.')/')
 
+" Marks an item and adds the current date an hour 
+" Returns the amount of items marked
+fu! s:mark_item_as_done(lineno) 
+    let l:date=strftime("%Y-%m-%d %H:%M:%S")
+    :call <SID>preserve(':silent! :'.a:lineno.'s/^\(\s*- [-+*]\?\s*\)\[ \]/\1[x]\ ('.l:date.')/')
+
+    " We need to check for subitems
+    let l:next_item        = a:lineno + 1
+    let l:curr_indentation = IndentationLevel(getline(a:lineno), g:tab_size_for_indentation_level)
+    let l:next_indentation = IndentationLevel(getline(l:next_item), g:tab_size_for_indentation_level)
+
+    echom l:curr_indentation 
+    echom l:next_indentation 
+
+    while l:next_indentation > l:curr_indentation && l:next_item <= line('$')
+        let l:marked_items = s:mark_item_as_done(l:next_item)
+        let l:next_item += l:marked_items + 1
+        let l:next_indentation = IndentationLevel(getline(l:next_item), g:tab_size_for_indentation_level)
+    endwhile
 endfu
 
 " Unmarks the item and removes the date
-fu! s:mark_item_as_undone()
+fu! s:mark_item_as_undone(lineno)
     let l:checkbox_regex='^\(\s*[-+*]\?\s*\)\[x\]\s'
     let l:date_regex='(\d\{4}-\d\{2}-\d\{2}\s\d\{2}:\d\{2}:\d\{2})'
-    :call s:preserve(':silent! :s/'.l:checkbox_regex.l:date_regex.'/\1[ ]/')
+    :call s:preserve(':silent! :'.a:lineno.'s/'.l:checkbox_regex.l:date_regex.'/\1[ ]/')
+
+    " We need to check for subitems
+    let l:next_item        = a:lineno + 1
+    let l:curr_indentation = IndentationLevel(getline(a:lineno), g:tab_size_for_indentation_level)
+    let l:next_indentation = IndentationLevel(getline(l:next_item), g:tab_size_for_indentation_level)
+
+    echom l:curr_indentation 
+    echom l:next_indentation 
+
+    while l:next_indentation > l:curr_indentation && l:next_item <= line('$')
+        let l:unmarked_items = s:mark_item_as_undone(l:next_item)
+        let l:next_item += l:unmarked_items + 1
+        let l:next_indentation = IndentationLevel(getline(l:next_item), g:tab_size_for_indentation_level)
+    endwhile
 endfu
 
 " Tags the item with a priority (TODO: check if there was a priority before)
@@ -79,66 +157,20 @@ endfu
 
 " Public API {{{
 
-" Create a new item
-"
-nnore <Plug>(simple-todo-new) a    [ ]<space>
-inore <Plug>(simple-todo-new) [ ]<space>
+fu! InsertItem(lineno)
+    call <SID>insert_new_item(a:lineno)
+endfu
 
-" Create a new item below
-nnore <Plug>(simple-todo-below) o<c-r>=<SID>get_list_marker(line('.')-1)<cr>[ ]<space>
-inore <Plug>(simple-todo-below) <Esc>o<c-r>=<SID>get_list_marker(line('.')-1)<cr>[ ]<space>
+fu! InsertSubItem(lineno)
+    call <SID>insert_new_subitem(a:lineno)
+endfu
 
-" Create a new item above
-nnore <Plug>(simple-todo-above) O<c-r>=<SID>get_list_marker(line('.')+1)<cr>[ ]<space>
-inore <Plug>(simple-todo-above) <Esc>O<c-r>=<SID>get_list_marker(line('.')+1)<cr>[ ]<space>
+fu! MarkItemAsDone(lineno)
+    call <SID>mark_item_as_done(a:lineno)
+endfu
 
-" Mark item under cursor as done
-nnore <Plug>(simple-todo-mark-as-done) :call <SID>mark_item_as_done()<cr>
-vnore <Plug>(simple-todo-mark-as-done) :call <SID>mark_item_as_done()<cr>
-inore <Plug>(simple-todo-mark-as-done) <Esc>:call <SID>mark_item_as_done()<cr>
-
-" Mark as undone
-nnore <Plug>(simple-todo-mark-as-undone) :call <SID>mark_item_as_undone()<cr>
-vnore <Plug>(simple-todo-mark-as-undone) :call <SID>mark_item_as_undone()<cr>
-inore <Plug>(simple-todo-mark-as-undone) <Esc>:call <SID>mark_item_as_undone()<cr>
-
-" Tag priority
-nnore <Plug>(fancy-todo-tag-a) :call <SID>tag_item_with_priority('A')<cr>
-nnore <Plug>(fancy-todo-tag-b) :call <SID>tag_item_with_priority('B')<cr>
-nnore <Plug>(fancy-todo-tag-c) :call <SID>tag_item_with_priority('C')<cr>
-
-" Sort priorities (keeps items without priority at the beginning)
-nnore <Plug>(fancy-todo-sort) :sort /.\{-}\ze([A-Z])/<cr>
-
-" Increase the current item priority
-nnore <Plug>(fancy-todo-increase-priority) :call <SID>increase_item_priority()<cr>
-" Decrease the current item priority
-nnore <Plug>(fancy-todo-decrease-priority) :call <SID>decrease_item_priority()<cr>
-    
-
-" }}}
-" Key bindings {{{ 
-
-if g:fancy_todo_map_keys
-    nmap <silent> <Leader>i <Plug>(simple-todo-new)
-    imap <silent> <Leader>i <Plug>(simple-todo-new)
-    nmap <silent> <Leader>o <Plug>(simple-todo-below)
-    imap <silent> <Leader>o <Plug>(simple-todo-below)
-    nmap <silent> <Leader>O <Plug>(simple-todo-above)
-    imap <silent> <Leader>O <Plug>(simple-todo-above)
-    nmap <silent> <Leader>x <Plug>(simple-todo-mark-as-done)
-    vmap <silent> <Leader>x <Plug>(simple-todo-mark-as-done)
-    imap <silent> <Leader>x <Plug>(simple-todo-mark-as-done)
-    nmap <silent> <Leader>X <Plug>(simple-todo-mark-as-undone)
-    vmap <silent> <Leader>X <Plug>(simple-todo-mark-as-undone)
-    imap <silent> <Leader>X <Plug>(simple-todo-mark-as-undone)
-
-    nmap <silent> <Leader>a <Plug>(fancy-todo-tag-a)
-    nmap <silent> <Leader>b <Plug>(fancy-todo-tag-b)
-    nmap <silent> <Leader>c <Plug>(fancy-todo-tag-c)
-    nmap <silent> <buffer> <Leader>s <Plug>(fancy-todo-sort)
-    nmap <silent> <buffer> <Leader>u <Plug>(fancy-todo-increase-priority)
-    nmap <silent> <buffer> <Leader>d <Plug>(fancy-todo-decrease-priority)
-endif
+fu! MarkItemAsUndone(lineno)
+    call <SID>mark_item_as_undone(a:lineno)
+endfu
 
 " }}}
