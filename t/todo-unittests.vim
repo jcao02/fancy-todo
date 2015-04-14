@@ -114,27 +114,31 @@ describe 'marking items'
         "1    - [ ] Item 1
         "2        - [ ] SubItem 1.1
         "3            - [ ] SubSubItem 1.1.1
-        "4        - [ ] SubItem 1.2
-        "5            - [ ] SubSubItem 1.2.1
+        "4            - [ ] SubSubItem 1.1.1
+        "5        - [ ] SubItem 1.2
+        "6            - [ ] SubSubItem 1.2.1
 
         call InsertSubItem(1)
         call InsertSubItem(1)
         call InsertSubItem(2)
-        call InsertSubItem(4)
+        call InsertSubItem(2)
+        call InsertSubItem(5)
 
         Expect getline(1) == '    - [ ]'
         Expect getline(2) == '        - [ ]'
         Expect getline(3) == '            - [ ]'
-        Expect getline(4) == '        - [ ]'
-        Expect getline(5) == '            - [ ]'
+        Expect getline(4) == '            - [ ]'
+        Expect getline(5) == '        - [ ]'
+        Expect getline(6) == '            - [ ]'
 
 
         call MarkItemAsDone(1)
         Expect getline(1) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
         Expect getline(2) =~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
         Expect getline(3) =~ '            - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(4) =~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(5) =~ '            - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(4) =~ '            - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(5) =~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(6) =~ '            - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'marks an item with nested subitems as done and it wont mark an item on the same level'
@@ -211,5 +215,27 @@ describe 'unmarking items'
 
     it 'tries to mark an item already marked and echoes a message'
         TODO
+    end
+end
+
+describe 'tagging items'
+
+    before
+        put! = '    - [ ]'
+    end
+
+    it 'should tag an item with priority X, by adding (X) at the end of the item'
+
+        call PrioritizeItem(1, 'A')
+
+        Expect getline(1) == '    - [ ] (A)'
+    end
+
+    it 'should change the priority of the current item if it already has one'
+        normal! 1Gdd
+
+        put! = '    - [ ] Item description (A)'
+        call PrioritizeItem(1, 'B')
+        Expect getline(1) == '    - [ ] Item description (B)'
     end
 end
