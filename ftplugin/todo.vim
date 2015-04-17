@@ -3,6 +3,7 @@
 " Description:   Add functions and maps to handle todo lists
 
 " TODO: take into account the 80's column rule
+" TODO: Add mentions and markdown formatting
 
 " Guard {{{
 
@@ -23,6 +24,18 @@ endif
 " Tab size for indentation level
 if !exists('g:todo_tab_size')
     let g:todo_tab_size = 4
+endif
+
+if !exists('g:todo_max_int')
+    let g:todo_max_int = 1000
+endif
+
+if !exists('g:number_of_priorities')
+    let g:number_of_priorities = 26
+endif
+
+if !exists('g:todo_sorting_precedence')
+    let g:todo_sorting_precedence = { "done" : g:todo_max_int,  "undone" : g:number_of_priorities + 1 }
 endif
 
 
@@ -55,6 +68,11 @@ fu! CollapsedItemText()
     return getline(v:foldstart).' ('.l:completed_items.'/'.l:itemsno.')'
 endfu
 set foldtext=CollapsedItemText()
+
+" Subitems tree
+let s:subitems_tree = {}
+" Item's attached lines
+let s:attached_lines = {}
 
 " }}}
 
@@ -139,6 +157,11 @@ fu! s:mark_item_as_undone(lineno)
     endwhile
 endfu
 
+" Checks if an item has a priority
+fu! s:has_priority(item)
+    return match(a:item, '(A-Z)$') != -1
+endfu
+
 " Tags the item with a priority (TODO: check if there was a priority before)
 fu! s:prioritize_item(lineno, priority)
 
@@ -151,18 +174,121 @@ fu! s:prioritize_item(lineno, priority)
     endif
 endfu
 
-fu! s:tag_item_with_priority(priority)
-    :call s:preserve('norm! A ('.a:priority.')')
-endfu
-
 " This will serve to decrement or increment the priority
-:set nf=octal,hex,alpha
-fu! s:increase_item_priority()
-    normal! $F(l\<C-x>
+fu! s:increase_item_priority(lineno)
+    set nf=octal,hex,alpha
+    exe ':normal! '.a:lineno.'G$h'."\<C-X>"
+    set nf=octal,hex
 endfu
 
-fu! s:decrease_item_priority()
-    normal! $F(l\<C-a>
+fu! s:decrease_item_priority(lineno)
+    set nf=octal,hex,alpha
+    exe ':normal! '.a:lineno.'G$h'."\<C-A>"
+    set nf=octal,hex
+endfu
+
+" This function returns the number of items checked
+fu! s:build_subitems_tree(curr_line, indentation_level)
+
+    let l:curr_attached_lines = 0
+
+    for l:line in range(a:curr_line + 1, line('$'))
+        let l:next_indentation = IndentationLevel(getline(l:line), g:todo_tab_size)
+
+        " It's the next indentation level, add subitem and make recursive call
+        if l:next_indentation == a:indentation_level + 1
+            if !has_key(s:subitems_tree, a:curr_line)
+                let s:subitems_tree[a:curr_line] = []
+            endif
+            call add(s:subitems_tree[a:curr_line], l:line)
+
+            let l:curr_attached_lines += <SID>build_subitems_tree(l:line, l:next_indentation) + 1
+
+        elseif l:next_indentation <= a:indentation_level 
+            break
+
+        endif
+    endfor
+
+    let s:attached_lines[a:curr_line] = l:curr_attached_lines
+
+    return l:curr_attached_lines
+endfu
+
+
+" This function gets the super item of an item by checking the 
+" closest item bottom-up that has indentation level - 1
+fu! s:get_super_item(line)
+    return <SID>search_super_in_file(a:line, IndentationLevel(getline(a:line), g:todo_tab_size))
+endfu
+
+" Helper function for get_super_item
+fu! s:search_super_in_file(line, indentation)
+    if a:line == 1
+        return 0
+    endif
+    let l:next_line        = a:line - 1
+    let l:next_indentation = IndentationLevel(getline(l:next_line), g:todo_tab_size)
+
+    if l:next_indentation == a:indentation + 1
+        return l:next_line
+    endif
+
+    return <SID>search_super_in_file(l:next_line, l:next_indentation)
+endfu
+
+" Returns the item priority. If it's not tagged, then it returns done or
+" undone
+fu! GetItemPriority(item)
+    let l:priority = matchstr(a:item , '([A-Z])$')
+    return l:priority != "" ? l:priority[1] : match(a:item, '\s*-\s\[[\ ]\]') != -1 ? '@' : '~'
+endfu
+
+" Comparison for the sort() function
+fu! ItemComparison(i1,i2)
+    let l:i1_prior = GetItemPriority(a:i1[0])
+    let l:i2_prior = GetItemPriority(a:i2[0])
+
+    return l:i1_prior == l:i2_prior ? 0 : l:i1_prior < l:i2_prior ? -1 : 1
+endfu
+
+
+" Sorts the items keeping the subitems attached to their superitems
+" XXX: Make the sort on the whole file
+fu! s:sort_items() range
+    let s:subitems_tree  = {}
+    let s:attached_lines = {}
+    call <SID>build_subitems_tree(0, 0)
+
+
+    " Gets super item of the first line
+    let l:superitem = <SID>get_super_item(a:firstline)
+
+    " Gets all the line numbers to take into account for sorting
+    let l:elements_to_sort = s:subitems_tree[l:superitem]
+
+    " Converts the line number into tuples (line, line number)
+    call map(l:elements_to_sort, '[getline(v:val), v:val]')
+
+    " Sorts the lines according to their priority and status (done or undone)
+    let l:sorted_elements = sort(copy(l:elements_to_sort), 'ItemComparison')
+
+    let l:sorted_list = []
+
+
+    for l:elem in l:sorted_elements 
+        let l:elem_line           = l:elem[1]
+        let l:elem_attached_lines = s:attached_lines[l:elem[1]]
+
+        let l:curr_elem = getline(l:elem_line, l:elem_line + l:elem_attached_lines)
+        let l:sorted_list += l:curr_elem
+    endfor
+
+    call setline(l:superitem + 1, l:sorted_list)
+
+    " Cleaning the environment
+    unlet s:subitems_tree
+    unlet s:attached_lines
 endfu
 " }}}
 
@@ -210,6 +336,35 @@ endfu
 fu! PrioritizeItem(lineno, priority)
     call <SID>prioritize_item(a:lineno, a:priority)
 endfu
+
+fu! IncreaseItemPriority(lineno)
+    call <SID>increase_item_priority(a:lineno)
+endfu
+
+fu! DecreaseItemPriority(lineno)
+    call <SID>decrease_item_priority(a:lineno)
+endfu
+
+fu! BuildSubItemTree()
+    let s:subitems_tree = {}
+    call <SID>build_subitems_tree(0, 0)
+    return [s:subitems_tree, s:attached_lines]
+endfu
+
+fu! SortItems() range
+    call <SID>sort_items()
+endfu
+
+" Scope to access s:* variables
+fu! Scope()
+    return s:
+endfu
+
+fu! SID()
+    return maparg('<SID>', 'n')
+endfu
+
+nnoremap <SID> <SID>
 
 " }}}
 
