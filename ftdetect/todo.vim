@@ -7,3 +7,4 @@ autocmd BufNewFile,BufRead *.todo set filetype=todo
 autocmd BufNewFile,BufRead *.td set filetype=todo
 autocmd BufNewFile,BufRead *.done set filetype=todo
 autocmd BufNewFile,BufRead *.dn set filetype=todo
+autocmd BufNewFile,BufRead todo.md set filetype=todo
