@@ -1,8 +1,7 @@
-" File:          simple-todo.vim
+" File:          todo.vim
 " Author:        Juan Carlos Arocha
 " Description:   Add functions and maps to handle todo lists
 
-" TODO: take into account the 80's column rule
 " TODO: Add mentions and markdown formatting
 
 " Guard {{{
@@ -16,7 +15,6 @@ let g:loaded_fancy_todo = 1
 
 " Config options {{{
 
-" TODO: take into account the max_nested_items variable
 if !exists('g:max_nested_items')
     let g:max_nested_items = 4
 endif
@@ -26,24 +24,17 @@ if !exists('g:todo_tab_size')
     let g:todo_tab_size = 4
 endif
 
-if !exists('g:todo_max_int')
-    let g:todo_max_int = 1000
-endif
-
-if !exists('g:number_of_priorities')
-    let g:number_of_priorities = 26
-endif
-
-if !exists('g:todo_sorting_precedence')
-    let g:todo_sorting_precedence = { "done" : g:todo_max_int,  "undone" : g:number_of_priorities + 1 }
-endif
-
-
 " Setting the folding method. 
 " The foldexpr was taken from: 
 " http://vim.wikia.com/wiki/Folding_for_plain_text_files_based_on_indentation
 setlocal foldmethod=expr
-setlocal foldexpr=(getline(v:lnum)=~'^$')?-1:((indent(v:lnum)<indent(v:lnum+1))?('>'.indent(v:lnum+1)):indent(v:lnum))
+
+fu! FoldingFunction(line)
+    return getline(a:line)=~'^$'? -1:
+                \ ((indent(a:line) < indent(a:line + 1)) ? 
+                \ ('>'.indent(a:line+1)): indent(a:line))
+endfu
+setlocal foldexpr=FoldingFunction(v:lnum)
 set fillchars=fold:\ "(there's a space after that \)
 
 
@@ -96,8 +87,8 @@ endfu
 fu! s:insert_new_item(lineno)
     exe 'normal '.a:lineno.'G'
     let l:spaces = repeat(' ', g:todo_tab_size)
-    if ContainsItem(getline(a:lineno))
-        let l:indentation_level = IndentationLevel(getline(a:lineno), g:todo_tab_size)
+    if <SID>contains_item(getline(a:lineno))
+        let l:indentation_level = <SID>indentation_level(a:lineno)
         let l:spaces .= repeat(' ', (l:indentation_level - 1) * g:todo_tab_size)
     endif
     put! = l:spaces.'- [ ]' 
@@ -108,8 +99,14 @@ endfu
 fu! s:insert_new_subitem(item_lineno)
     let l:item = getline(a:item_lineno)
     
-    if ContainsItem(l:item)
-        let l:indentation_level = IndentationLevel(l:item, g:todo_tab_size)
+    if <SID>contains_item(l:item)
+        let l:indentation_level = <SID>indentation_level(a:item_lineno)
+        
+        " If the max number of nested items is reached, then it will add it in
+        " the same level
+        if l:indentation_level == g:max_nested_items + 1
+            let l:indentation_level -= 1
+        endif
 
         let l:spaces = repeat(' ', (l:indentation_level + 1) * g:todo_tab_size)
 
@@ -129,13 +126,13 @@ fu! s:mark_item_as_done(lineno)
 
     " We need to check for subitems
     let l:next_item        = a:lineno + 1
-    let l:curr_indentation = IndentationLevel(getline(a:lineno), g:todo_tab_size)
-    let l:next_indentation = IndentationLevel(getline(l:next_item), g:todo_tab_size)
+    let l:curr_indentation = <SID>indentation_level(a:lineno)
+    let l:next_indentation = <SID>indentation_level(l:next_item)
 
     while l:next_indentation > l:curr_indentation && l:next_item <= line('$')
         let l:marked_items = s:mark_item_as_done(l:next_item)
         let l:next_item += l:marked_items + 1
-        let l:next_indentation = IndentationLevel(getline(l:next_item), g:todo_tab_size)
+        let l:next_indentation = <SID>indentation_level(l:next_item)
     endwhile
 endfu
 
@@ -147,40 +144,52 @@ fu! s:mark_item_as_undone(lineno)
 
     " We need to check for subitems
     let l:next_item        = a:lineno + 1
-    let l:curr_indentation = IndentationLevel(getline(a:lineno), g:todo_tab_size)
-    let l:next_indentation = IndentationLevel(getline(l:next_item), g:todo_tab_size)
+    let l:curr_indentation = <SID>indentation_level(a:lineno)
+    let l:next_indentation = <SID>indentation_level(l:next_item)
 
     while l:next_indentation > l:curr_indentation && l:next_item <= line('$')
         let l:unmarked_items = s:mark_item_as_undone(l:next_item)
         let l:next_item += l:unmarked_items + 1
-        let l:next_indentation = IndentationLevel(getline(l:next_item), g:todo_tab_size)
+        let l:next_indentation = <SID>indentation_level(l:next_item)
     endwhile
+endfu
+
+" Toggle mark
+fu! s:mark_item()
+    let l:item = getline(line('.'))
+    if match(l:item, '\s*-\s\[[\ ]\]') == -1 
+        call <SID>mark_item_as_undone(line('.'))
+    else
+        call <SID>mark_item_as_done(line('.'))
+    endif
 endfu
 
 " Checks if an item has a priority
 fu! s:has_priority(item)
-    return match(a:item, '(A-Z)$') != -1
+    return match(a:item, '([A-Z])$') != -1
 endfu
 
-" Tags the item with a priority (TODO: check if there was a priority before)
+" Tags the item with a priority 
 fu! s:prioritize_item(lineno, priority)
 
-    let line_text = getline(a:lineno)
-    if match(l:line_text, '([A-Z])$') != -1
-        let l:new_priority = substitute(l:line_text, '([A-Z])$', '('.a:priority.')', '')
+    let l:line_text = getline(a:lineno)
+    if <SID>has_priority(l:line_text)
+        let l:new_priority = substitute(l:line_text, '([A-Z])$', 
+                                        \ '('.a:priority.')', '')
         call setline(a:lineno, l:new_priority)
     else
         :call s:preserve('norm! '.a:lineno.'GA ('.a:priority.')')
     endif
 endfu
 
-" This will serve to decrement or increment the priority
+" This will serve to increment the priority
 fu! s:increase_item_priority(lineno)
     set nf=octal,hex,alpha
     exe ':normal! '.a:lineno.'G$h'."\<C-X>"
     set nf=octal,hex
 endfu
 
+" This will serve to decrement the priority
 fu! s:decrease_item_priority(lineno)
     set nf=octal,hex,alpha
     exe ':normal! '.a:lineno.'G$h'."\<C-A>"
@@ -193,7 +202,7 @@ fu! s:build_subitems_tree(curr_line, indentation_level)
     let l:curr_attached_lines = 0
 
     for l:line in range(a:curr_line + 1, line('$'))
-        let l:next_indentation = IndentationLevel(getline(l:line), g:todo_tab_size)
+        let l:next_indentation = <SID>indentation_level(l:line)
 
         " It's the next indentation level, add subitem and make recursive call
         if l:next_indentation == a:indentation_level + 1
@@ -202,11 +211,11 @@ fu! s:build_subitems_tree(curr_line, indentation_level)
             endif
             call add(s:subitems_tree[a:curr_line], l:line)
 
-            let l:curr_attached_lines += <SID>build_subitems_tree(l:line, l:next_indentation) + 1
-
+            let l:curr_attached_lines += <SID>build_subitems_tree(
+                                                    \ l:line, 
+                                                    \ l:next_indentation) + 1
         elseif l:next_indentation <= a:indentation_level 
             break
-
         endif
     endfor
 
@@ -219,7 +228,7 @@ endfu
 " This function gets the super item of an item by checking the 
 " closest item bottom-up that has indentation level - 1
 fu! s:get_super_item(line)
-    return <SID>search_super_in_file(a:line, IndentationLevel(getline(a:line), g:todo_tab_size))
+    return <SID>search_super_in_file(a:line, <SID>indentation_level(a:line))
 endfu
 
 " Helper function for get_super_item
@@ -228,20 +237,29 @@ fu! s:search_super_in_file(line, indentation)
         return 0
     endif
     let l:next_line        = a:line - 1
-    let l:next_indentation = IndentationLevel(getline(l:next_line), g:todo_tab_size)
+    let l:next_indentation = <SID>indentation_level(l:next_line)
 
-    if l:next_indentation == a:indentation + 1
+    if l:next_indentation == a:indentation - 1
         return l:next_line
     endif
 
     return <SID>search_super_in_file(l:next_line, l:next_indentation)
 endfu
 
-" Returns the item priority. If it's not tagged, then it returns done or
-" undone
+" Undone with priority    : Keeps same letter
+" Undone without priority : ^ 
+" Done with priority      : tolowercase (A -> a)
+" Done without priority   : ~
 fu! GetItemPriority(item)
     let l:priority = matchstr(a:item , '([A-Z])$')
-    return l:priority != "" ? l:priority[1] : match(a:item, '\s*-\s\[[\ ]\]') != -1 ? '@' : '~'
+    let is_done    = match(a:item, '\s*-\s\[[\ ]\]') == -1
+
+    return !is_done && l:priority != "" ? l:priority[1] : 
+         \ !is_done && l:priority == "" ? '^' :
+         \ is_done && l:priority != "" ? tolower(l:priority[1]) : "~"
+
+    return l:priority != "" ? 
+                \ l:priority[1] : match(a:item, '\s*-\s\[[\ ]\]') != -1 ? '@' : '~'
 endfu
 
 " Comparison for the sort() function
@@ -280,7 +298,9 @@ fu! s:sort_items() range
         let l:elem_line           = l:elem[1]
         let l:elem_attached_lines = s:attached_lines[l:elem[1]]
 
-        let l:curr_elem = getline(l:elem_line, l:elem_line + l:elem_attached_lines)
+        let l:curr_elem = getline(
+                    \ l:elem_line, 
+                    \ l:elem_line + l:elem_attached_lines)
         let l:sorted_list += l:curr_elem
     endfor
 
@@ -290,90 +310,124 @@ fu! s:sort_items() range
     unlet s:subitems_tree
     unlet s:attached_lines
 endfu
-" }}}
 
-" Public API {{{
-"
+" Returns the indentation level of an item (lineno)
+fu! s:indentation_level(lineno)
+    return indent(a:lineno) / g:todo_tab_size
+endfu
+
 " Checks if the string string contains a todo item
-fu! ContainsItem(string)
+fu! s:contains_item(string)
     let l:item = matchstr(a:string, '    - \[[x\ ]\]')
     return l:item != ""
 endfu
+" }}}
 
-" Returns the indentation level of an item (lineno)
-" TODO: Replace this for indent()
-fu! IndentationLevel(item, tab)
-    let l:char   = a:item[0]
-    let l:spaces = 0
-    let l:index  = 1
+" Public API {{{
 
-    while (l:char != '-' && l:index < len(a:item))
-        let l:char = a:item[l:index]
-        let l:spaces += 1
-        let l:index += 1
-    endwhile
-
-    return l:spaces / a:tab
+" Init required variables
+fu! SetEnv()
+    let s:subitems_tree  = {}
+    let s:attached_lines = {}
 endfu
 
-
-fu! InsertItem(lineno)
-    call <SID>insert_new_item(a:lineno)
-endfu
-
-fu! InsertSubItem(lineno)
-    call <SID>insert_new_subitem(a:lineno)
-endfu
-
-fu! MarkItemAsDone(lineno)
-    call <SID>mark_item_as_done(a:lineno)
-endfu
-
-fu! MarkItemAsUndone(lineno)
-    call <SID>mark_item_as_undone(a:lineno)
-endfu
-
-fu! PrioritizeItem(lineno, priority)
-    call <SID>prioritize_item(a:lineno, a:priority)
-endfu
-
-fu! IncreaseItemPriority(lineno)
-    call <SID>increase_item_priority(a:lineno)
-endfu
-
-fu! DecreaseItemPriority(lineno)
-    call <SID>decrease_item_priority(a:lineno)
-endfu
-
-fu! BuildSubItemTree()
-    let s:subitems_tree = {}
-    call <SID>build_subitems_tree(0, 0)
-    return [s:subitems_tree, s:attached_lines]
-endfu
-
-fu! SortItems() range
-    call <SID>sort_items()
+" Clean the environment
+fu! CleanEnv()
+    unlet s:subitems_tree
+    unlet s:attached_lines
 endfu
 
 " Scope to access s:* variables
-fu! Scope()
+fu! SScope()
     return s:
 endfu
 
+" External accesor to s: scope
 fu! SID()
     return maparg('<SID>', 'n')
 endfu
-
 nnoremap <SID> <SID>
+
+" }}}
+
+" Commands {{{
+
+command! SortItems call <SID>sort_items()
+command! MarkItem  call <SID>mark_item()
+command! NewItem call <SID>insert_new_item(line('.'))
+command! NewSubItem call <SID>insert_new_subitem(line('.'))
 
 " }}}
 
 " Maps {{{
 
 " Folding maps:
-nnoremap <buffer> <S-Left> zo
-inoremap <buffer> <S-Left> <C-O>zo
-nnoremap <buffer> <S-Right> zc
-inoremap <buffer> <S-Right> <C-O>zc
+nnore <buffer> <silent> <S-Left> zo
+inore <buffer> <silent> <S-Left> <C-O>zo
+nnore <buffer> <silent> <S-Right> zc
+inore <buffer> <silent> <S-Right> <C-O>zc
 
+" Items maps
+nnore <buffer> <silent> <Plug>(fancy-todo-insert-item) :NewItem<cr>
+inore <buffer> <silent> <Plug>(fancy-todo-insert-item) :NewItem<cr>
+vnore <buffer> <silent> <Plug>(fancy-todo-insert-item) :NewItem<cr>
+
+nnore <buffer> <silent> <Plug>(fancy-todo-insert-subitem) :NewSubItem<cr>
+inore <buffer> <silent> <Plug>(fancy-todo-insert-subitem) :NewSubItem<cr>
+vnore <buffer> <silent> <Plug>(fancy-todo-insert-subitem) :NewSubItem<cr>
+
+" Marking maps
+nnore <buffer> <silent> <Plug>(fancy-todo-mark) :MarkItem<cr>
+inore <buffer> <silent> <Plug>(fancy-todo-mark) :MarkItem<cr>
+vnore <buffer> <silent> <Plug>(fancy-todo-mark) :MarkItem<cr>
+
+" Sorting maps
+nnore <buffer> <silent> <Plug>(fancy-todo-sort) :SortItems<cr>
+inore <buffer> <silent> <Plug>(fancy-todo-sort) :SortItems<cr>
+vnore <buffer> <silent> <Plug>(fancy-todo-sort) :SortItems<cr>
+
+" User's maps 
+" Sorting
+if !hasmapto('<Leader>s', 'n')
+    nmap <Leader>s <Plug>(fancy-todo-sort)
+endif
+if !hasmapto('<Leader>s', 'v')
+    vmap <Leader>s <Plug>(fancy-todo-sort)
+endif
+if !hasmapto('<Leader>s', 'i')
+    imap <Leader>s <Plug>(fancy-todo-sort)
+endif
+
+" Marking
+if !hasmapto('<Leader>x', 'n')
+    nmap <Leader>x <Plug>(fancy-todo-mark)
+endif
+if !hasmapto('<Leader>x', 'v')
+    vmap <Leader>x <Plug>(fancy-todo-mark)
+endif
+if !hasmapto('<Leader>x', 'i')
+    imap <Leader>x <Plug>(fancy-todo-mark)
+endif
+
+" Inserting item
+if !hasmapto('<Leader>i', 'n')
+    nmap <Leader>i <Plug>(fancy-todo-insert-item)
+endif
+if !hasmapto('<Leader>i', 'v')
+    vmap <Leader>i <Plug>(fancy-todo-insert-item)
+endif
+if !hasmapto('<Leader>i', 'i')
+    imap <Leader>i <Plug>(fancy-todo-insert-item)
+endif
+
+" Inserting subitem
+if !hasmapto('<Leader>o', 'n')
+    nmap <Leader>o <Plug>(fancy-todo-insert-subitem)
+endif
+if !hasmapto('<Leader>o', 'v')
+    vmap <Leader>o <Plug>(fancy-todo-insert-subitem)
+endif
+if !hasmapto('<Leader>o', 'i')
+    imap <Leader>o <Plug>(fancy-todo-insert-subitem)
+endif
 " }}}

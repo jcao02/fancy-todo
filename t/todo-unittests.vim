@@ -1,7 +1,8 @@
 runtime! ftplugin/todo.vim 
 
+" Function to inkove a private function
 fu! InvokePrivate(function, arguments)
-    echo call(substitute(a:function, '^s:', SID(), ''), a:arguments)
+    return call(substitute(a:function, '^s:', SID(), ''), a:arguments)
 endfu
 
 
@@ -16,29 +17,29 @@ describe 'auxiliar functions'
     end
 
     it 'should return 1 as indentation level'
-        Expect IndentationLevel(getline(1), 4) == 1
+        Expect InvokePrivate('s:indentation_level', [1]) == 1
     end
 
     it 'should return 2 as indentation level'
         normal! dd
         put! = '        - [ ]'  
-        Expect IndentationLevel(getline(1), 4) == 2
+        Expect InvokePrivate('s:indentation_level', [1]) == 2
     end
 
     it 'should return 3 as indentation level'
         normal! dd
         put! = '            - [ ]'  
-        Expect IndentationLevel(getline(1), 4) == 3
+        Expect InvokePrivate('s:indentation_level', [1]) == 3
     end
 
     it 'should detect an item in the line 1'
-        Expect ContainsItem(getline(1)) == 1
+        Expect InvokePrivate('s:contains_item', [getline(1)]) == 1
     end
 
     it 'should not detect an item in the line 1'
         normal dd
         put! = 'noitem'
-        Expect ContainsItem(getline(1)) == 0
+        Expect InvokePrivate('s:contains_item', [getline(1)]) == 0
     end
 end
 
@@ -54,25 +55,35 @@ describe 'items insertion'
 
     it 'adds a new item on empty line'
         normal! dd " Remove the first line
-        call InsertItem(1)
+        call InvokePrivate('s:insert_new_item', [1])
         Expect getline(1) == '    - [ ]'
     end
 
     it 'adds an item above an existing item'
-        call InsertItem(1)
+        call InvokePrivate('s:insert_new_item', [1])
         Expect getline(2) == '    - [ ]'
     end
 
     it 'adds a subitem to an existing item'
-        call InsertSubItem(1)
+        call InvokePrivate('s:insert_new_subitem', [1])
         Expect getline(1) == '    - [ ]'
         Expect getline(2) == '        - [ ]'
+    end
 
+    it 'adds a subitem to an existing item reaching max_nested_items and adding a normal item'
+        let g:max_nested_items = 1
+        call setline(2, '        - [ ]')
+        call InvokePrivate('s:insert_new_subitem', [2])
+        Expect getline(1) == '    - [ ]'
+        Expect getline(2) == '        - [ ]'
+        Expect getline(3) == '        - [ ]'
+
+        let g:max_nested_items = 4
     end
 
     it 'adds an item at the same level that a subitem'
-        call InsertSubItem(1)
-        call InsertItem(2)
+        call InvokePrivate('s:insert_new_subitem', [1])
+        call InvokePrivate('s:insert_new_item', [2])
 
         Expect getline(2) == '        - [ ]'
         Expect getline(3) == '        - [ ]'
@@ -94,7 +105,7 @@ describe 'marking items'
     end
 
     it 'marks a item without subitems as done and adds the current date'
-        call MarkItemAsDone(1)
+        call InvokePrivate('s:mark_item_as_done', [1])
         let l:item = getline(1)
         Expect getline(1) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
@@ -102,14 +113,14 @@ describe 'marking items'
     it 'marks an item subitem and it does not mark the super item'
         normal 1G
         put = '        - [ ]'
-        call MarkItemAsDone(2)
+        call InvokePrivate('s:mark_item_as_done', [2])
         Expect getline(1) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
         Expect getline(2) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'marks an item with one subitem as done and marks every subitem'
-        call InsertSubItem(1)
-        call MarkItemAsDone(1)
+        call InvokePrivate('s:insert_new_subitem', [1])
+        call InvokePrivate('s:mark_item_as_done', [1])
         Expect getline(1) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
         Expect getline(2) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
@@ -122,11 +133,11 @@ describe 'marking items'
         "5        - [ ] SubItem 1.2
         "6            - [ ] SubSubItem 1.2.1
 
-        call InsertSubItem(1)
-        call InsertSubItem(1)
-        call InsertSubItem(2)
-        call InsertSubItem(2)
-        call InsertSubItem(5)
+        call InvokePrivate('s:insert_new_subitem', [1])
+        call InvokePrivate('s:insert_new_subitem', [1])
+        call InvokePrivate('s:insert_new_subitem', [2])
+        call InvokePrivate('s:insert_new_subitem', [2])
+        call InvokePrivate('s:insert_new_subitem', [5])
 
         Expect getline(1) == '    - [ ]'
         Expect getline(2) == '        - [ ]'
@@ -136,7 +147,7 @@ describe 'marking items'
         Expect getline(6) == '            - [ ]'
 
 
-        call MarkItemAsDone(1)
+        call InvokePrivate('s:mark_item_as_done', [1])
         Expect getline(1) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
         Expect getline(2) =~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
         Expect getline(3) =~ '            - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
@@ -150,10 +161,10 @@ describe 'marking items'
         " 2        - [ ] 1.1
         " 3    - [ ] 2 
 
-        call InsertItem(1)
-        call InsertSubItem(1)
+        call InvokePrivate('s:insert_new_item', [1])
+        call InvokePrivate('s:insert_new_subitem', [1])
 
-        call MarkItemAsDone(1)
+        call InvokePrivate('s:mark_item_as_done', [1])
         Expect getline(1) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
         Expect getline(2) =~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
         Expect getline(3) !~ '            - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
@@ -178,7 +189,7 @@ describe 'unmarking items'
     end
 
     it 'unmarks a marked item'
-        call MarkItemAsUndone(1)
+        call InvokePrivate('s:mark_item_as_undone', [1])
         Expect getline(1) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
@@ -189,7 +200,7 @@ describe 'unmarking items'
         "
         put = '        - [x] (2015-12-12 12:12:12)'
         put = '        - [x] (2015-12-12 12:12:12)'
-        call MarkItemAsUndone(1)
+        call InvokePrivate('s:mark_item_as_undone', [1])
         Expect getline(1) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
         Expect getline(2) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
         Expect getline(3) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
@@ -206,7 +217,7 @@ describe 'unmarking items'
         put = '    - [x] (2015-12-12 12:12:12)'
 
 
-        call MarkItemAsUndone(1)
+        call InvokePrivate('s:mark_item_as_undone', [1])
         Expect getline(1) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
         Expect getline(2) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
         Expect getline(3) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
@@ -234,25 +245,25 @@ describe 'tagging items'
     end
 
     it 'should tag an item with priority X, by adding (X) at the end of the item'
-        call PrioritizeItem(1, 'A')
+        call InvokePrivate('s:prioritize_item', [1, 'A'])
         Expect getline(1) == '    - [ ] (A)'
     end
 
     it 'should change the priority of the current item if it already has one'
         call setline(1, '    - [ ] Item description (A)')
-        call PrioritizeItem(1, 'B')
+        call InvokePrivate('s:prioritize_item', [1, 'B'])
         Expect getline(1) == '    - [ ] Item description (B)'
     end
 
     it 'should increase the item priority'
         call setline(1, '    - [ ] (B)')
-        call IncreaseItemPriority(1)
+        call InvokePrivate('s:increase_item_priority', [1])
         Expect getline(1) == '    - [ ] (A)'
     end
 
     it 'should decrease the item priority'
         call setline(1, '    - [ ] (A)')
-        call DecreaseItemPriority(1)
+        call InvokePrivate('s:decrease_item_priority', [1])
         Expect getline(1) == '    - [ ] (B)'
     end
 end
@@ -273,7 +284,12 @@ describe 'sorting items'
 
         call setline(1, '    - [ ]')
         call setline(2, '        - [ ]')
-        let [l:subitems, l:attached_lines] = BuildSubItemTree()
+
+        call SetEnv()
+        call InvokePrivate('s:build_subitems_tree', [0, 0])
+        let l:scope = SScope()
+        let l:subitems = l:scope['subitems_tree']
+        let l:attached_lines = l:scope['attached_lines']
 
         Expect get(l:subitems, 0, []) == [1]
         Expect get(l:subitems, 1, []) == [2]
@@ -282,6 +298,7 @@ describe 'sorting items'
         Expect get(l:attached_lines, 0, -1) == 2
         Expect get(l:attached_lines, 1, -1) == 1
         Expect get(l:attached_lines, 2, -1) == 0
+        call CleanEnv()
     end
 
 
@@ -305,7 +322,12 @@ describe 'sorting items'
         call setline(7, '                - [ ]')
         call setline(8, '            - [ ]')
         call setline(9, '        - [ ]')
-        let [l:subitems, l:attached_lines] = BuildSubItemTree()
+
+        call SetEnv()
+        call InvokePrivate('s:build_subitems_tree', [0, 0])
+        let l:scope = SScope()
+        let l:subitems = l:scope['subitems_tree']
+        let l:attached_lines = l:scope['attached_lines']
 
         Expect get(l:subitems, 0, []) == [1]
         Expect get(l:subitems, 1, []) == [2,3,9]
@@ -328,18 +350,20 @@ describe 'sorting items'
         Expect get(l:attached_lines, 7, -1) == 0
         Expect get(l:attached_lines, 8, -1) == 0
         Expect get(l:attached_lines, 9, -1) == 0
+
+        call CleanEnv()
     end
 
     it 'should get priorty from A to Z, done or undone'
 
         let l:item_priority = GetItemPriority('    - [ ] Item 1')
-        Expect l:item_priority == '@'
+        Expect l:item_priority == '^'
 
         let l:item_priority = GetItemPriority('    - [x] Item 1')
         Expect l:item_priority == '~'
 
         let l:item_priority = GetItemPriority('    - [x] Item 1 (A)')
-        Expect l:item_priority == "A"
+        Expect l:item_priority == "a"
     end
 
     it 'should say that done is greater than undone priority'
@@ -347,7 +371,11 @@ describe 'sorting items'
     end
 
     it 'should say that B is greater than A priority'
-        Expect ItemComparison(['    - [ ] (A)', 1],['    - [x] (B)', 2]) ==  -1
+        Expect ItemComparison(['    - [ ] (A)', 1],['    - [ ] (B)', 2]) ==  -1
+    end
+
+    it 'should say that A is greater than B priority due the A status'
+        Expect ItemComparison(['    - [x] (A)', 1],['    - [ ] (B)', 2]) ==  1
     end
     it 'should sort the list of pairs [line text, line number] by priority'
         "1    - [x] (date time)         -> - [ ] Item 2
@@ -388,14 +416,14 @@ describe 'sorting items'
         call setline(3, '    - [x] Item 3 (2015-12-12 12:12:12)')
         call setline(4, '    - [ ] Item 4')
 
-        call SortItems()
+        call InvokePrivate('s:sort_items', [])
         Expect getline(1) == '    - [ ] Item 2'
         Expect getline(2) == '    - [ ] Item 4'
         Expect getline(3) == '    - [x] Item 1 (2015-12-12 12:12:12)'
         Expect getline(4) == '    - [x] Item 3 (2015-12-12 12:12:12)'
     end
 
-    it 'should sort a simple list with priority'
+    it 'should sort a simple list with priority having status more precedence'
         "1    - [x] Item 1 (date time) (C)  -> - [x] Item 3
         "2    - [ ] Item 2      (B)         -> - [ ] Item 2
         "3    - [x] Item 3 (date time) (A)  -> - [x] Item 1
@@ -406,15 +434,88 @@ describe 'sorting items'
         call setline(3, '    - [x] Item 3 (2015-12-12 12:12:12)(A)')
         call setline(4, '    - [ ] Item 4                      (D)')
 
-        call SortItems()
-        Expect getline(1) == '    - [x] Item 3 (2015-12-12 12:12:12)(A)'
-        Expect getline(2) == '    - [ ] Item 2                      (B)'
-        Expect getline(3) == '    - [x] Item 1 (2015-12-12 12:12:12)(C)'
-        Expect getline(4) == '    - [ ] Item 4                      (D)'
+        call InvokePrivate('s:sort_items', [])
+        Expect getline(1) == '    - [ ] Item 2                      (B)'
+        Expect getline(2) == '    - [ ] Item 4                      (D)'
+        Expect getline(3) == '    - [x] Item 3 (2015-12-12 12:12:12)(A)'
+        Expect getline(4) == '    - [x] Item 1 (2015-12-12 12:12:12)(C)'
     end
 
-    it 'should sort an average list with subitems, priority and no priority'
-        TODO
+    it 'should get 0 as super item of line 1'
+        "1    - [ ] Item
+        call setline(1, '    - [ ]')
+        Expect InvokePrivate('s:get_super_item', [1]) == 0
+    end
+    
+    it 'should get 1 as super item of line 2'
+        "1    - [ ] Item
+        "2        - [ ] Item
+        call setline(1, '    - [ ]')
+        call setline(2, '        - [ ]')
+        Expect InvokePrivate('s:get_super_item', [2]) == 1
+    end
+
+    it 'should sort a list in which all super item has priority but subitems dont'
+        "1    - [ ] Item 1 (C)     ->     - [ ] Item 3 (A)
+        "2        - [ ] Item 1.1   ->         - [ ] Item 3.1
+        "3        - [ ] Item 1.2   ->     - [ ] Item 2 (B)
+        "4    - [ ] Item 2 (B)     ->         - [ ] Item 2.1
+        "5        - [ ] Item 2.1   ->     - [ ] Item 1 (C)
+        "6    - [ ] Item 3 (A)     ->         - [ ] Item 1.1
+        "7        - [ ] Item 3.1   ->         - [ ] Item 1.2  
+        
+        call setline(1, '    - [ ] Item 1 (C)')
+        call setline(2, '        - [ ] Item 1.1')
+        call setline(3, '        - [ ] Item 1.2')
+        call setline(4, '    - [ ] Item 2 (B)')
+        call setline(5, '        - [ ] Item 2.1')
+        call setline(6, '    - [ ] Item 3 (A)')
+        call setline(7, '        - [ ] Item 3.1')
+
+        call InvokePrivate('s:sort_items', [])
+
+        Expect getline(1) == '    - [ ] Item 3 (A)'
+        Expect getline(2) == '        - [ ] Item 3.1'
+        Expect getline(3) == '    - [ ] Item 2 (B)'
+        Expect getline(4) == '        - [ ] Item 2.1'
+        Expect getline(5) == '    - [ ] Item 1 (C)'
+        Expect getline(6) == '        - [ ] Item 1.1'
+        Expect getline(7) == '        - [ ] Item 1.2'
+    end
+
+    it 'should sort a subblock of items'
+        "1    - [ ] SuperItem  1 (B)
+        "2        - [ ] Item 1 (C)     ->     - [ ] Item 3 (A)
+        "3            - [ ] Item 1.1   ->         - [ ] Item 3.1
+        "4            - [ ] Item 1.2   ->     - [ ] Item 2 (B)
+        "5        - [ ] Item 2 (B)     ->         - [ ] Item 2.1
+        "6            - [ ] Item 2.1   ->     - [ ] Item 1 (C)
+        "7        - [ ] Item 3 (A)     ->         - [ ] Item 1.1
+        "8            - [ ] Item 3.1   ->         - [ ] Item 1.2  
+        "9    - [ ] SuperItem  2 (A)
+
+        call setline(1, '    - [ ] SuperItem 1 (B)')
+        call setline(2, '        - [ ] Item 1 (C)')
+        call setline(3, '            - [ ] Item 1.1')
+        call setline(4, '            - [ ] Item 1.2')
+        call setline(5, '        - [ ] Item 2 (B)')
+        call setline(6, '            - [ ] Item 2.1')
+        call setline(7, '        - [ ] Item 3 (A)')
+        call setline(8, '            - [ ] Item 3.1')
+        call setline(9, '    - [ ] SuperItem 2 (A)')
+
+        norm! 2G
+        call InvokePrivate('s:sort_items', [])
+
+        Expect getline(1) == '    - [ ] SuperItem 1 (B)'
+        Expect getline(2) == '        - [ ] Item 3 (A)'
+        Expect getline(3) == '            - [ ] Item 3.1'
+        Expect getline(4) == '        - [ ] Item 2 (B)'
+        Expect getline(5) == '            - [ ] Item 2.1'
+        Expect getline(6) == '        - [ ] Item 1 (C)'
+        Expect getline(7) == '            - [ ] Item 1.1'
+        Expect getline(8) == '            - [ ] Item 1.2'
+        Expect getline(9) == '    - [ ] SuperItem 2 (A)'
     end
 
 end
