@@ -24,6 +24,10 @@ if !exists('g:todo_tab_size')
     let g:todo_tab_size = 4
 endif
 
+if !exists('g:todo_dummy_item')
+    let g:todo_dummy_item = ''
+endif
+
 " Setting the folding method. 
 " The foldexpr was taken from: 
 " http://vim.wikia.com/wiki/Folding_for_plain_text_files_based_on_indentation
@@ -86,12 +90,13 @@ endfu
 " If there's already an item, moves the item to the next line
 fu! s:insert_new_item(lineno)
     exe 'normal '.a:lineno.'G'
-    let l:spaces = repeat(' ', g:todo_tab_size)
+    let l:spaces = ''
     if <SID>contains_item(getline(a:lineno))
         let l:indentation_level = <SID>indentation_level(a:lineno)
-        let l:spaces .= repeat(' ', (l:indentation_level - 1) * g:todo_tab_size)
+        let l:spaces = repeat(' ', l:indentation_level * g:todo_tab_size)
     endif
     put! = l:spaces.'- [ ]' 
+    exe 'normal! A '.g:todo_dummy_item
 endfu
 
 " Inserts a new subitem for the item in the current line. 
@@ -104,7 +109,7 @@ fu! s:insert_new_subitem(item_lineno)
         
         " If the max number of nested items is reached, then it will add it in
         " the same level
-        if l:indentation_level == g:max_nested_items + 1
+        if l:indentation_level == g:max_nested_items
             let l:indentation_level -= 1
         endif
 
@@ -112,6 +117,7 @@ fu! s:insert_new_subitem(item_lineno)
 
         exe 'normal! '.a:item_lineno.'G'
         put = l:spaces.'- [ ]'
+        exe 'normal! A '.g:todo_dummy_item
     else
         echom "There's no item under cursor"
     endif
@@ -202,6 +208,10 @@ fu! s:build_subitems_tree(curr_line, indentation_level)
     let l:curr_attached_lines = 0
 
     for l:line in range(a:curr_line + 1, line('$'))
+        let l:line_text = getline(l:line)
+        if !<SID>contains_item(l:line_text)
+            continue
+        endif
         let l:next_indentation = <SID>indentation_level(l:line)
 
         " It's the next indentation level, add subitem and make recursive call
@@ -236,7 +246,13 @@ fu! s:search_super_in_file(line, indentation)
     if a:line == 1
         return 0
     endif
+
     let l:next_line        = a:line - 1
+
+    if !<SID>contains_item(getline(l:next_line))
+        return <SID>search_super_in_file(l:next_line - 1, l:next_indentation)
+    endif
+
     let l:next_indentation = <SID>indentation_level(l:next_line)
 
     if l:next_indentation == a:indentation - 1
@@ -270,6 +286,13 @@ fu! ItemComparison(i1,i2)
     return l:i1_prior == l:i2_prior ? 0 : l:i1_prior < l:i2_prior ? -1 : 1
 endfu
 
+fu! s:swap_lines(n1,n2)
+    let line1 = getline(a:n1)
+    let line2 = getline(a:n2)
+    call setline(a:n1, line2)
+    call setline(a:n2, line1)
+endfu
+
 
 " Sorts the items keeping the subitems attached to their superitems
 " XXX: Make the sort on the whole file
@@ -292,19 +315,24 @@ fu! s:sort_items() range
     let l:sorted_elements = sort(copy(l:elements_to_sort), 'ItemComparison')
 
     let l:sorted_list = []
-
+    let l:curr_top_line = l:superitem + 1
 
     for l:elem in l:sorted_elements 
         let l:elem_line           = l:elem[1]
         let l:elem_attached_lines = s:attached_lines[l:elem[1]]
 
-        let l:curr_elem = getline(
-                    \ l:elem_line, 
-                    \ l:elem_line + l:elem_attached_lines)
-        let l:sorted_list += l:curr_elem
-    endfor
+        for l:attached_item in range(l:elem_line, l:elem_line + l:elem_attached_lines)
+            call <SID>swap_lines(l:curr_top_line, l:attached_item)
+            let l:curr_top_line += 1
+        endfor
 
-    call setline(l:superitem + 1, l:sorted_list)
+        "let l:curr_elem = getline(
+                    "\ l:elem_line, 
+                    "\ l:elem_line + l:elem_attached_lines)
+        "let l:sorted_list += l:curr_elem
+    endfor
+    "call setline(l:superitem + 1, l:sorted_list)
+
 
     " Cleaning the environment
     unlet s:subitems_tree
@@ -318,7 +346,7 @@ endfu
 
 " Checks if the string string contains a todo item
 fu! s:contains_item(string)
-    let l:item = matchstr(a:string, '    - \[[x\ ]\]')
+    let l:item = matchstr(a:string, '^\s*- \[[x\ ]\]')
     return l:item != ""
 endfu
 " }}}

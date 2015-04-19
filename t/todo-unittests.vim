@@ -46,47 +46,57 @@ end
 describe 'items insertion'
     before
         new 
-        put! = '    - [ ]'  
+        let g:todo_dummy_item = ''
+        put! = '- [ ]'  
     end
 
     after
         close! 
     end
 
+    it 'adds a new item on empty line and inserts dummy phrase as item'
+        normal! dd " Remove the first line
+        let g:todo_dummy_item = 'Item description'
+        call InvokePrivate('s:insert_new_item', [1])
+        Expect getline(1) == '- [ ] Item description'
+    end
+
     it 'adds a new item on empty line'
         normal! dd " Remove the first line
         call InvokePrivate('s:insert_new_item', [1])
-        Expect getline(1) == '    - [ ]'
+        Expect getline(1) == '- [ ] '
+        Expect col('.') == 6
+        Expect line('.') == 1
     end
 
     it 'adds an item above an existing item'
         call InvokePrivate('s:insert_new_item', [1])
-        Expect getline(2) == '    - [ ]'
+        Expect getline(2) == '- [ ]'
     end
 
     it 'adds a subitem to an existing item'
         call InvokePrivate('s:insert_new_subitem', [1])
-        Expect getline(1) == '    - [ ]'
-        Expect getline(2) == '        - [ ]'
+        Expect getline(1) == '- [ ]'
+        Expect getline(2) == '    - [ ] '
     end
 
     it 'adds a subitem to an existing item reaching max_nested_items and adding a normal item'
-        let g:max_nested_items = 1
-        call setline(2, '        - [ ]')
-        call InvokePrivate('s:insert_new_subitem', [2])
-        Expect getline(1) == '    - [ ]'
-        Expect getline(2) == '        - [ ]'
-        Expect getline(3) == '        - [ ]'
+        call setline(2, '    - [ ]')
+        call setline(3, '        - [ ]')
+        call setline(4, '            - [ ]')
+        call setline(5, '                - [ ]')
+        call InvokePrivate('s:insert_new_subitem', [5])
+        Expect getline(6) == '                - [ ] '
 
-        let g:max_nested_items = 4
     end
 
     it 'adds an item at the same level that a subitem'
         call InvokePrivate('s:insert_new_subitem', [1])
         call InvokePrivate('s:insert_new_item', [2])
 
-        Expect getline(2) == '        - [ ]'
-        Expect getline(3) == '        - [ ]'
+        Expect getline(1) == '- [ ]'
+        Expect getline(2) == '    - [ ] '
+        Expect getline(3) == '    - [ ] '
     end
 
     it 'tries to add a subitem in an empty line and echoes a message'
@@ -97,7 +107,7 @@ end
 describe 'marking items'
     before
         new 
-        put! = '    - [ ]'
+        put! = '- [ ]'
     end
 
     after
@@ -107,22 +117,22 @@ describe 'marking items'
     it 'marks a item without subitems as done and adds the current date'
         call InvokePrivate('s:mark_item_as_done', [1])
         let l:item = getline(1)
-        Expect getline(1) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(1) =~ '- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'marks an item subitem and it does not mark the super item'
         normal 1G
-        put = '        - [ ]'
+        put = '    - [ ]'
         call InvokePrivate('s:mark_item_as_done', [2])
-        Expect getline(1) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(2) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(1) !~ '- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(2) =~ '- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'marks an item with one subitem as done and marks every subitem'
         call InvokePrivate('s:insert_new_subitem', [1])
         call InvokePrivate('s:mark_item_as_done', [1])
-        Expect getline(1) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(2) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(1) =~ '- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(2) =~ '- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'marks an item with nested subitems as done and marks every nested subitem'
@@ -139,21 +149,21 @@ describe 'marking items'
         call InvokePrivate('s:insert_new_subitem', [2])
         call InvokePrivate('s:insert_new_subitem', [5])
 
-        Expect getline(1) == '    - [ ]'
-        Expect getline(2) == '        - [ ]'
-        Expect getline(3) == '            - [ ]'
-        Expect getline(4) == '            - [ ]'
-        Expect getline(5) == '        - [ ]'
-        Expect getline(6) == '            - [ ]'
+        Expect getline(1) == '- [ ]'
+        Expect getline(2) == '    - [ ] '
+        Expect getline(3) == '        - [ ] '
+        Expect getline(4) == '        - [ ] '
+        Expect getline(5) == '    - [ ] '
+        Expect getline(6) == '        - [ ] '
 
 
         call InvokePrivate('s:mark_item_as_done', [1])
-        Expect getline(1) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(2) =~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(3) =~ '            - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(4) =~ '            - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(5) =~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(6) =~ '            - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(1) =~ '- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(2) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(3) =~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(4) =~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(5) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(6) =~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'marks an item with nested subitems as done and it wont mark an item on the same level'
@@ -165,9 +175,9 @@ describe 'marking items'
         call InvokePrivate('s:insert_new_subitem', [1])
 
         call InvokePrivate('s:mark_item_as_done', [1])
-        Expect getline(1) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(2) =~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(3) !~ '            - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(1) =~ '- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(2) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(3) !~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'tries to mark an item in an empty line and echoes a message'
@@ -354,6 +364,34 @@ describe 'sorting items'
         call CleanEnv()
     end
 
+    it 'should build a tree ignoring non-items and comments'
+        "1 # Comment
+        "2 - [ ] Item 1
+        "3
+        "4     - [ ] Item 1.1
+        "5 - [ ] Item 2
+        
+        call setline(1, '# Comment')
+        call setline(2, '- [ ] Item 1')
+        call setline(3, '')
+        call setline(4, '    - [ ] Item 1.1')
+        call setline(5, '- [ ] Item 2')
+
+        call SetEnv()
+        call InvokePrivate('s:build_subitems_tree', [0, 0])
+        let l:scope = SScope()
+        let l:subitems = l:scope['subitems_tree']
+        let l:attached_lines = l:scope['attached_lines']
+
+        Expect get(l:subitems, 0, []) == [2, 5]
+        Expect get(l:subitems, 1, []) == []
+        Expect get(l:subitems, 2, []) == [4]
+        Expect get(l:subitems, 3, []) == []
+        Expect get(l:subitems, 4, []) == []
+        Expect get(l:subitems, 5, []) == []
+        call CleanEnv()
+    end
+
     it 'should get priorty from A to Z, done or undone'
 
         let l:item_priority = GetItemPriority('    - [ ] Item 1')
@@ -518,4 +556,15 @@ describe 'sorting items'
         Expect getline(9) == '    - [ ] SuperItem 2 (A)'
     end
 
+    it 'should sort only the items and not the comments'
+        call setline(1, '# Comment here')
+        call setline(2, '    - [ ] SuperItem 1 (B)')
+        call setline(3, '    - [ ] SuperItem 2 (A)')
+
+        call InvokePrivate('s:sort_items', [])
+
+        Expect getline(1) == '# Comment here'
+        Expect getline(2) == '    - [ ] SuperItem 2 (A)'
+        Expect getline(2) == '    - [ ] SuperItem 1 (B)'
+    end
 end
