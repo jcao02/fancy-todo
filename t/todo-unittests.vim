@@ -117,22 +117,22 @@ describe 'marking items'
     it 'marks a item without subitems as done and adds the current date'
         call InvokePrivate('s:mark_item_as_done', [1])
         let l:item = getline(1)
-        Expect getline(1) =~ '- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(1) =~ '- \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'marks an item subitem and it does not mark the super item'
         normal 1G
         put = '    - [ ]'
         call InvokePrivate('s:mark_item_as_done', [2])
-        Expect getline(1) !~ '- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(2) =~ '- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(1) !~ '- \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(2) =~ '- \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'marks an item with one subitem as done and marks every subitem'
         call InvokePrivate('s:insert_new_subitem', [1])
         call InvokePrivate('s:mark_item_as_done', [1])
-        Expect getline(1) =~ '- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(2) =~ '- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(1) =~ '- \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(2) =~ '- \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'marks an item with nested subitems as done and marks every nested subitem'
@@ -158,12 +158,12 @@ describe 'marking items'
 
 
         call InvokePrivate('s:mark_item_as_done', [1])
-        Expect getline(1) =~ '- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(2) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(3) =~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(4) =~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(5) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(6) =~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(1) =~ '- \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(2) =~ '    - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(3) =~ '        - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(4) =~ '        - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(5) =~ '    - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(6) =~ '        - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'marks an item with nested subitems as done and it wont mark an item on the same level'
@@ -175,9 +175,9 @@ describe 'marking items'
         call InvokePrivate('s:insert_new_subitem', [1])
 
         call InvokePrivate('s:mark_item_as_done', [1])
-        Expect getline(1) =~ '- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(2) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(3) !~ '        - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(1) =~ '- \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(2) =~ '    - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(3) !~ '        - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'tries to mark an item in an empty line and echoes a message'
@@ -200,7 +200,7 @@ describe 'unmarking items'
 
     it 'unmarks a marked item'
         call InvokePrivate('s:mark_item_as_undone', [1])
-        Expect getline(1) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(1) !~ '    - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'unmarks a marked item and all its subitems'
@@ -208,12 +208,12 @@ describe 'unmarking items'
         "2        - [x] (date time)
         "3        - [x] (date time)
         "
-        put = '        - [x] (2015-12-12 12:12:12)'
-        put = '        - [x] (2015-12-12 12:12:12)'
+        put = '        - [x] on (2015-12-12 12:12:12)'
+        put = '        - [x] on (2015-12-12 12:12:12)'
         call InvokePrivate('s:mark_item_as_undone', [1])
-        Expect getline(1) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(2) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(3) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(1) !~ '    - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(2) !~ '    - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(3) !~ '    - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'unmarks a marked items and all its subitems, but no the marked item on the same level'
@@ -222,16 +222,16 @@ describe 'unmarking items'
         "3        - [x] (date time)
         "4    - [x] (date time)
         
-        put = '        - [x] (2015-12-12 12:12:12)'
-        put = '        - [x] (2015-12-12 12:12:12)'
-        put = '    - [x] (2015-12-12 12:12:12)'
+        put = '        - [x] on (2015-12-12 12:12:12)'
+        put = '        - [x] on (2015-12-12 12:12:12)'
+        put = '    - [x] on (2015-12-12 12:12:12)'
 
 
         call InvokePrivate('s:mark_item_as_undone', [1])
-        Expect getline(1) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(2) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(3) !~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
-        Expect getline(4) =~ '    - \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(1) !~ '    - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(2) !~ '    - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(3) !~ '    - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+        Expect getline(4) =~ '    - \[[x]\] on (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
     end
 
     it 'tries to mark an item in an empty line and echoes a message'
@@ -421,9 +421,9 @@ describe 'sorting items'
         "3    - [x] Item 3(date time)   -> - [x] Item 1
         "4    - [ ] Item 4              -> - [x] Item 3
         
-        call setline(1, '    - [x] Item 1 (2015-12-12 12:12:12)')
+        call setline(1, '    - [x] Item 1 on (2015-12-12 12:12:12)')
         call setline(2, '    - [ ] Item 2')
-        call setline(3, '    - [x] Item 3 (2015-12-12 12:12:12)')
+        call setline(3, '    - [x] Item 3 on (2015-12-12 12:12:12)')
         call setline(4, '    - [ ] Item 4')
 
         let l:list = [ 1, 2, 3, 4 ]
@@ -449,16 +449,16 @@ describe 'sorting items'
         "3    - [x] (date time)   -> - [x] Item 1
         "4    - [ ]               -> - [x] Item 3
         
-        call setline(1, '    - [x] Item 1 (2015-12-12 12:12:12)')
+        call setline(1, '    - [x] Item 1 on (2015-12-12 12:12:12)')
         call setline(2, '    - [ ] Item 2')
-        call setline(3, '    - [x] Item 3 (2015-12-12 12:12:12)')
+        call setline(3, '    - [x] Item 3 on (2015-12-12 12:12:12)')
         call setline(4, '    - [ ] Item 4')
 
         call InvokePrivate('s:sort_items', [])
         Expect getline(1) == '    - [ ] Item 2'
         Expect getline(2) == '    - [ ] Item 4'
-        Expect getline(3) == '    - [x] Item 1 (2015-12-12 12:12:12)'
-        Expect getline(4) == '    - [x] Item 3 (2015-12-12 12:12:12)'
+        Expect getline(3) == '    - [x] Item 1 on (2015-12-12 12:12:12)'
+        Expect getline(4) == '    - [x] Item 3 on (2015-12-12 12:12:12)'
     end
 
     it 'should sort a simple list with priority having status more precedence'
@@ -467,16 +467,16 @@ describe 'sorting items'
         "3    - [x] Item 3 (date time) (A)  -> - [x] Item 1
         "4    - [ ] Item 4      (D)         -> - [ ] Item 4
 
-        call setline(1, '    - [x] Item 1 (2015-12-12 12:12:12)(C)')
+        call setline(1, '    - [x] Item 1 on (2015-12-12 12:12:12)(C)')
         call setline(2, '    - [ ] Item 2                      (B)')
-        call setline(3, '    - [x] Item 3 (2015-12-12 12:12:12)(A)')
+        call setline(3, '    - [x] Item 3 on (2015-12-12 12:12:12)(A)')
         call setline(4, '    - [ ] Item 4                      (D)')
 
         call InvokePrivate('s:sort_items', [])
         Expect getline(1) == '    - [ ] Item 2                      (B)'
         Expect getline(2) == '    - [ ] Item 4                      (D)'
-        Expect getline(3) == '    - [x] Item 3 (2015-12-12 12:12:12)(A)'
-        Expect getline(4) == '    - [x] Item 1 (2015-12-12 12:12:12)(C)'
+        Expect getline(3) == '    - [x] Item 3 on (2015-12-12 12:12:12)(A)'
+        Expect getline(4) == '    - [x] Item 1 on (2015-12-12 12:12:12)(C)'
     end
 
     it 'should get 0 as super item of line 1'

@@ -128,7 +128,7 @@ endfu
 " Returns the amount of items marked
 fu! s:mark_item_as_done(lineno) 
     let l:date=strftime("%Y-%m-%d %H:%M:%S")
-    :call <SID>preserve(':silent! :'.a:lineno.'s/^\(\s*- [-+*]\?\s*\)\[ \]/\1[x]\ ('.l:date.')/')
+    :call <SID>preserve(':silent! :'.a:lineno.'s/^\(\s*- [-+*]\?\s*\)\[ \]/\1[x]\ on\ ('.l:date.')/')
 
     " We need to check for subitems
     let l:next_item        = a:lineno + 1
@@ -145,7 +145,7 @@ endfu
 " Unmarks the item and removes the date
 fu! s:mark_item_as_undone(lineno)
     let l:checkbox_regex='^\(\s*[-+*]\?\s*\)\[x\]\s'
-    let l:date_regex='(\d\{4}-\d\{2}-\d\{2}\s\d\{2}:\d\{2}:\d\{2})'
+    let l:date_regex='on\s(\d\{4}-\d\{2}-\d\{2}\s\d\{2}:\d\{2}:\d\{2})'
     :call s:preserve(':silent! :'.a:lineno.'s/'.l:checkbox_regex.l:date_regex.'/\1[ ]/')
 
     " We need to check for subitems
