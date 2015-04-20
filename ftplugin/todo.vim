@@ -128,7 +128,7 @@ endfu
 " Returns the amount of items marked
 fu! s:mark_item_as_done(lineno) 
     let l:date=strftime("%Y-%m-%d %H:%M:%S")
-    :call <SID>preserve(':silent! :'.a:lineno.'s/^\(\s*- [-+*]\?\s*\)\[ \]/\1[x]\ on\ ('.l:date.')/')
+    :call <SID>preserve(':silent! :'.a:lineno.'s/^\(\s*- [-+*]\?\s*\)\[ \]/\1[x]\ on\ '.l:date.'\ |\ /')
 
     " We need to check for subitems
     let l:next_item        = a:lineno + 1
@@ -145,7 +145,7 @@ endfu
 " Unmarks the item and removes the date
 fu! s:mark_item_as_undone(lineno)
     let l:checkbox_regex='^\(\s*[-+*]\?\s*\)\[x\]\s'
-    let l:date_regex='on\s(\d\{4}-\d\{2}-\d\{2}\s\d\{2}:\d\{2}:\d\{2})'
+    let l:date_regex='on\s\d\{4}-\d\{2}-\d\{2}\s\d\{2}:\d\{2}:\d\{2}\ | '
     :call s:preserve(':silent! :'.a:lineno.'s/'.l:checkbox_regex.l:date_regex.'/\1[ ]/')
 
     " We need to check for subitems
@@ -202,65 +202,74 @@ fu! s:decrease_item_priority(lineno)
     set nf=octal,hex
 endfu
 
-" This function returns the number of items checked
-fu! s:build_subitems_tree(curr_line, indentation_level)
-
-    let l:curr_attached_lines = 0
-
-    for l:line in range(a:curr_line + 1, line('$'))
-        let l:line_text = getline(l:line)
-        if !<SID>contains_item(l:line_text)
-            continue
-        endif
-        let l:next_indentation = <SID>indentation_level(l:line)
-
-        " It's the next indentation level, add subitem and make recursive call
-        if l:next_indentation == a:indentation_level + 1
-            if !has_key(s:subitems_tree, a:curr_line)
-                let s:subitems_tree[a:curr_line] = []
-            endif
-            call add(s:subitems_tree[a:curr_line], l:line)
-
-            let l:curr_attached_lines += <SID>build_subitems_tree(
-                                                    \ l:line, 
-                                                    \ l:next_indentation) + 1
-        elseif l:next_indentation <= a:indentation_level 
-            break
-        endif
-    endfor
-
-    let s:attached_lines[a:curr_line] = l:curr_attached_lines
-
-    return l:curr_attached_lines
+" This function will get the next character of letter
+fu! s:get_next_char(letter)
+    return nr2char(char2nr(a:letter) + 1)
 endfu
 
 
-" This function gets the super item of an item by checking the 
-" closest item bottom-up that has indentation level - 1
-fu! s:get_super_item(line)
-    return <SID>search_super_in_file(a:line, <SID>indentation_level(a:line))
+fu! s:build_tree()
+    call cursor(1,1)
+    return <SID>mix_branches('A', search('[\s]*-\ \[[x\ ]\]', 'c'), {}, {})
 endfu
 
-" Helper function for get_super_item
-fu! s:search_super_in_file(line, indentation)
-    if a:line == 1
+fu! s:mix_branches(root, curr, tree, superitem)
+    if a:curr == 0
+        return [a:tree, a:superitem]
+    endif
+    let [l:curr, l:tree, l:superitem] = <SID>build_subitems_branch(a:root, a:curr, a:tree, a:superitem)
+
+    if l:curr > line('$')
+        return [l:tree, l:superitem]
+    endif
+
+    call cursor(l:curr, 1)
+    return <SID>mix_branches(<SID>get_next_char(a:root), search('[\s]*-\ \[[x\ ]\]', 'c'), l:tree, l:superitem)
+endfu
+
+" This function builds a tree branch and returns [current_line, branch]
+fu! s:build_subitems_branch(prev, curr, tree, superitem)
+
+    " Base case: EOF or not an item
+    if a:curr > line('$') || !<SID>contains_item(getline(a:curr))
+        return [a:curr, a:tree, a:superitem]
+    endif
+
+    let l:prev_indent = <SID>indentation_level(a:prev) 
+    let l:curr_indent = <SID>indentation_level(a:curr) 
+
+    " Direct item descendant or prev is a character > '9'
+    if char2nr(a:prev) > 57 || l:prev_indent < l:curr_indent
+        if !has_key(a:tree, a:prev)
+            let a:tree[a:prev] = []
+        endif
+        call add(a:tree[a:prev], a:curr)
+        let a:superitem[a:curr] = a:prev
+
+    else
+        " Same item level or higher item level 
+        let l:prev_super = <SID>super(a:prev, 
+                    \ l:prev_indent - l:curr_indent, a:superitem)
+        call add(a:tree[l:prev_super], a:curr)
+        let a:superitem[a:curr] = l:prev_super
+
+    endif
+
+    return <SID>build_subitems_branch(a:curr, a:curr + 1, a:tree, a:superitem)
+endfu
+
+" Get the super item at level deepness
+fu! s:super(item, deepness, superitem)
+    if !has_key(a:superitem, a:item)
         return 0
     endif
 
-    let l:next_line        = a:line - 1
-
-    if !<SID>contains_item(getline(l:next_line))
-        return <SID>search_super_in_file(l:next_line - 1, l:next_indentation)
+    if a:deepness == 0
+        return a:superitem[a:item]
     endif
-
-    let l:next_indentation = <SID>indentation_level(l:next_line)
-
-    if l:next_indentation == a:indentation - 1
-        return l:next_line
-    endif
-
-    return <SID>search_super_in_file(l:next_line, l:next_indentation)
+    return <SID>super(a:superitem[a:item], a:deepness - 1, a:superitem)
 endfu
+
 
 " Undone with priority    : Keeps same letter
 " Undone without priority : ^ 
@@ -293,50 +302,41 @@ fu! s:swap_lines(n1,n2)
     call setline(a:n2, line1)
 endfu
 
+fu! s:reorganice(item, indentation, position)
+
+    let l:next_indentation = <SID>indentation_level(a:item)
+
+    if l:next_indentation <= a:indentation || !<SID>contains_item(getline(a:item))
+        return a:position
+    endif
+
+    call <SID>swap_lines(a:item, a:position)
+    return <SID>reorganice(a:item + 1, l:next_indentation, a:position + 1)
+endfu
+
 
 " Sorts the items keeping the subitems attached to their superitems
 " XXX: Make the sort on the whole file
 fu! s:sort_items() range
-    let s:subitems_tree  = {}
-    let s:attached_lines = {}
-    call <SID>build_subitems_tree(0, 0)
+    let [l:tree, l:superitems] = <SID>build_tree()
 
+    let l:superitem = <SID>super(a:firstline, 0, l:superitems)
 
-    " Gets super item of the first line
-    let l:superitem = <SID>get_super_item(a:firstline)
+    " Trying to sort over a non-item
+    if l:superitem == 0
+        return 
+    endif
 
-    " Gets all the line numbers to take into account for sorting
-    let l:elements_to_sort = s:subitems_tree[l:superitem]
+    let l:list = l:tree[l:superitem]
+    call map(l:list, '[getline(v:val), v:val]')
 
-    " Converts the line number into tuples (line, line number)
-    call map(l:elements_to_sort, '[getline(v:val), v:val]')
+    let l:sorted_list   = sort(l:list, 'ItemComparison')
+    let l:position      = l:superitem + 1
+    let l:sorted_stirng = ''
 
-    " Sorts the lines according to their priority and status (done or undone)
-    let l:sorted_elements = sort(copy(l:elements_to_sort), 'ItemComparison')
-
-    let l:sorted_list = []
-    let l:curr_top_line = l:superitem + 1
-
-    for l:elem in l:sorted_elements 
-        let l:elem_line           = l:elem[1]
-        let l:elem_attached_lines = s:attached_lines[l:elem[1]]
-
-        for l:attached_item in range(l:elem_line, l:elem_line + l:elem_attached_lines)
-            call <SID>swap_lines(l:curr_top_line, l:attached_item)
-            let l:curr_top_line += 1
-        endfor
-
-        "let l:curr_elem = getline(
-                    "\ l:elem_line, 
-                    "\ l:elem_line + l:elem_attached_lines)
-        "let l:sorted_list += l:curr_elem
+    for l:item in l:sorted_list
+        " sort everything
     endfor
-    "call setline(l:superitem + 1, l:sorted_list)
-
-
-    " Cleaning the environment
-    unlet s:subitems_tree
-    unlet s:attached_lines
 endfu
 
 " Returns the indentation level of an item (lineno)
@@ -355,14 +355,12 @@ endfu
 
 " Init required variables
 fu! SetEnv()
-    let s:subitems_tree  = {}
-    let s:attached_lines = {}
+    let s:superitem = {}
 endfu
 
 " Clean the environment
 fu! CleanEnv()
-    unlet s:subitems_tree
-    unlet s:attached_lines
+    unlet s:superitem
 endfu
 
 " Scope to access s:* variables
