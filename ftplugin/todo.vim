@@ -295,48 +295,56 @@ fu! ItemComparison(i1,i2)
     return l:i1_prior == l:i2_prior ? 0 : l:i1_prior < l:i2_prior ? -1 : 1
 endfu
 
-fu! s:swap_lines(n1,n2)
-    let line1 = getline(a:n1)
-    let line2 = getline(a:n2)
-    call setline(a:n1, line2)
-    call setline(a:n2, line1)
+
+
+fu! s:get_item_block(line)
+    let l:block = []
+
+    call add(l:block, getline(a:line))
+    let l:curr_indentation = <SID>indentation_level(a:line)
+
+    let l:next = a:line + 1
+    while <SID>indentation_level(l:next) > l:curr_indentation
+        call add(l:block, getline(l:next))
+        let l:next += 1
+    endwhile
+
+    return l:block
 endfu
-
-fu! s:reorganice(item, indentation, position)
-
-    let l:next_indentation = <SID>indentation_level(a:item)
-
-    if l:next_indentation <= a:indentation || !<SID>contains_item(getline(a:item))
-        return a:position
-    endif
-
-    call <SID>swap_lines(a:item, a:position)
-    return <SID>reorganice(a:item + 1, l:next_indentation, a:position + 1)
-endfu
-
 
 " Sorts the items keeping the subitems attached to their superitems
-" XXX: Make the sort on the whole file
 fu! s:sort_items() range
     let [l:tree, l:superitems] = <SID>build_tree()
 
     let l:superitem = <SID>super(a:firstline, 0, l:superitems)
 
     " Trying to sort over a non-item
-    if l:superitem == 0
-        return 
+    if char2nr(l:superitem) == 48
+        if a:firstline == line('$')
+            return []
+        endif
+
+        call cursor(a:firstline + 1, 1)
+        return <SID>sort_items()
     endif
 
-    let l:list = l:tree[l:superitem]
+    let l:list = copy(l:tree[l:superitem])
     call map(l:list, '[getline(v:val), v:val]')
 
     let l:sorted_list   = sort(l:list, 'ItemComparison')
     let l:position      = l:superitem + 1
-    let l:sorted_stirng = ''
+    let l:sorted_lines  = []
 
     for l:item in l:sorted_list
-        " sort everything
+        let l:sorted_lines += <SID>get_item_block(l:item[1])
     endfor
+
+
+
+    let l:min_line = min(l:tree[l:superitem])
+    call setline(l:min_line, l:sorted_lines)
+
+    return l:sorted_lines
 endfu
 
 " Returns the indentation level of an item (lineno)

@@ -517,128 +517,115 @@ describe 'sorting items'
 
     end
 
-    "it 'should sort a simple list without priority keeping completed items at the end'
-        ""1    - [x] (date time)   -> - [ ] Item 2
-        ""2    - [ ] Item 1        -> - [ ] Item 4
-        ""3    - [x] (date time)   -> - [x] Item 1
-        ""4    - [ ]               -> - [x] Item 3
+    it 'should sort a simple list without priority keeping completed items at the end'
+        "1    - [x] (date time)   -> - [ ] Item 2
+        "2    - [ ] Item 1        -> - [ ] Item 4
+        "3    - [x] (date time)   -> - [x] Item 1
+        "4    - [ ]               -> - [x] Item 3
         
-        "call setline(1, '    - [x] Item 1 (2015-12-12 12:12:12)')
-        "call setline(2, '    - [ ] Item 2')
-        "call setline(3, '    - [x] Item 3 (2015-12-12 12:12:12)')
-        "call setline(4, '    - [ ] Item 4')
+        call setline(1, '    - [x] Item 1 (2015-12-12 12:12:12)')
+        call setline(2, '    - [ ] Item 2')
+        call setline(3, '    - [x] Item 3 (2015-12-12 12:12:12)')
+        call setline(4, '    - [ ] Item 4')
 
-        "call InvokePrivate('s:sort_items', [])
-        "Expect getline(1) == '    - [ ] Item 2'
-        "Expect getline(2) == '    - [ ] Item 4'
-        "Expect getline(3) == '    - [x] Item 1 (2015-12-12 12:12:12)'
-        "Expect getline(4) == '    - [x] Item 3 (2015-12-12 12:12:12)'
-    "end
+        "Expect InvokePrivate('s:sort_items', []) == []
+        call InvokePrivate('s:sort_items', [])
+        Expect getline(1) == '    - [ ] Item 2'
+        Expect getline(2) == '    - [ ] Item 4'
+        Expect getline(3) == '    - [x] Item 1 (2015-12-12 12:12:12)'
+        Expect getline(4) == '    - [x] Item 3 (2015-12-12 12:12:12)'
+    end
 
-    "it 'should sort a simple list with priority having status more precedence'
-        ""1    - [x] Item 1 (date time) (C)  -> - [x] Item 3
-        ""2    - [ ] Item 2      (B)         -> - [ ] Item 2
-        ""3    - [x] Item 3 (date time) (A)  -> - [x] Item 1
-        ""4    - [ ] Item 4      (D)         -> - [ ] Item 4
+    it 'should sort a simple list with priority having status more precedence'
+        "1    - [x] Item 1 (date time) (C)  -> - [x] Item 3
+        "2    - [ ] Item 2      (B)         -> - [ ] Item 2
+        "3    - [x] Item 3 (date time) (A)  -> - [x] Item 1
+        "4    - [ ] Item 4      (D)         -> - [ ] Item 4
 
-        "call setline(1, '    - [x] Item 1 (2015-12-12 12:12:12)(C)')
-        "call setline(2, '    - [ ] Item 2                      (B)')
-        "call setline(3, '    - [x] Item 3 (2015-12-12 12:12:12)(A)')
-        "call setline(4, '    - [ ] Item 4                      (D)')
+        call setline(1, '    - [x] Item 1 (2015-12-12 12:12:12)(C)')
+        call setline(2, '    - [ ] Item 2                      (B)')
+        call setline(3, '    - [x] Item 3 (2015-12-12 12:12:12)(A)')
+        call setline(4, '    - [ ] Item 4                      (D)')
 
-        "call InvokePrivate('s:sort_items', [])
-        "Expect getline(1) == '    - [ ] Item 2                      (B)'
-        "Expect getline(2) == '    - [ ] Item 4                      (D)'
-        "Expect getline(3) == '    - [x] Item 3 (2015-12-12 12:12:12)(A)'
-        "Expect getline(4) == '    - [x] Item 1 (2015-12-12 12:12:12)(C)'
-    "end
+        call InvokePrivate('s:sort_items', [])
+        Expect getline(1) == '    - [ ] Item 2                      (B)'
+        Expect getline(2) == '    - [ ] Item 4                      (D)'
+        Expect getline(3) == '    - [x] Item 3 (2015-12-12 12:12:12)(A)'
+        Expect getline(4) == '    - [x] Item 1 (2015-12-12 12:12:12)(C)'
+    end
 
-    "it 'should get 0 as super item of line 1'
-        ""1    - [ ] Item
-        "call setline(1, '    - [ ]')
-        "Expect InvokePrivate('s:get_super_item', [1]) == 0
-    "end
-    
-    "it 'should get 1 as super item of line 2'
-        ""1    - [ ] Item
-        ""2        - [ ] Item
-        "call setline(1, '    - [ ]')
-        "call setline(2, '        - [ ]')
-        "Expect InvokePrivate('s:get_super_item', [2]) == 1
-    "end
-
-    "it 'should sort a list in which all super item has priority but subitems dont'
-        ""1    - [ ] Item 1 (C)     ->     - [ ] Item 3 (A)
-        ""2        - [ ] Item 1.1   ->         - [ ] Item 3.1
-        ""3        - [ ] Item 1.2   ->     - [ ] Item 2 (B)
-        ""4    - [ ] Item 2 (B)     ->         - [ ] Item 2.1
-        ""5        - [ ] Item 2.1   ->     - [ ] Item 1 (C)
-        ""6    - [ ] Item 3 (A)     ->         - [ ] Item 1.1
-        ""7        - [ ] Item 3.1   ->         - [ ] Item 1.2  
+    it 'should sort a list in which all super item has priority but subitems dont'
+        "1    - [ ] Item 1 (C)     ->     - [ ] Item 3 (A)
+        "2        - [ ] Item 1.1   ->         - [ ] Item 3.1
+        "3        - [ ] Item 1.2   ->     - [ ] Item 2 (B)
+        "4    - [ ] Item 2 (B)     ->         - [ ] Item 2.1
+        "5        - [ ] Item 2.1   ->     - [ ] Item 1 (C)
+        "6    - [ ] Item 3 (A)     ->         - [ ] Item 1.1
+        "7        - [ ] Item 3.1   ->         - [ ] Item 1.2  
         
-        "call setline(1, '    - [ ] Item 1 (C)')
-        "call setline(2, '        - [ ] Item 1.1')
-        "call setline(3, '        - [ ] Item 1.2')
-        "call setline(4, '    - [ ] Item 2 (B)')
-        "call setline(5, '        - [ ] Item 2.1')
-        "call setline(6, '    - [ ] Item 3 (A)')
-        "call setline(7, '        - [ ] Item 3.1')
+        call setline(1, '    - [ ] Item 1 (C)')
+        call setline(2, '        - [ ] Item 1.1')
+        call setline(3, '        - [ ] Item 1.2')
+        call setline(4, '    - [ ] Item 2 (B)')
+        call setline(5, '        - [ ] Item 2.1')
+        call setline(6, '    - [ ] Item 3 (A)')
+        call setline(7, '        - [ ] Item 3.1')
 
-        "call InvokePrivate('s:sort_items', [])
+        call InvokePrivate('s:sort_items', [])
 
-        "Expect getline(1) == '    - [ ] Item 3 (A)'
-        "Expect getline(2) == '        - [ ] Item 3.1'
-        "Expect getline(3) == '    - [ ] Item 2 (B)'
-        "Expect getline(4) == '        - [ ] Item 2.1'
-        "Expect getline(5) == '    - [ ] Item 1 (C)'
-        "Expect getline(6) == '        - [ ] Item 1.1'
-        "Expect getline(7) == '        - [ ] Item 1.2'
-    "end
+        Expect getline(1) == '    - [ ] Item 3 (A)'
+        Expect getline(2) == '        - [ ] Item 3.1'
+        Expect getline(3) == '    - [ ] Item 2 (B)'
+        Expect getline(4) == '        - [ ] Item 2.1'
+        Expect getline(5) == '    - [ ] Item 1 (C)'
+        Expect getline(6) == '        - [ ] Item 1.1'
+        Expect getline(7) == '        - [ ] Item 1.2'
+    end
 
-    "it 'should sort a subblock of items'
-        ""1    - [ ] SuperItem  1 (B)
-        ""2        - [ ] Item 1 (C)     ->     - [ ] Item 3 (A)
-        ""3            - [ ] Item 1.1   ->         - [ ] Item 3.1
-        ""4            - [ ] Item 1.2   ->     - [ ] Item 2 (B)
-        ""5        - [ ] Item 2 (B)     ->         - [ ] Item 2.1
-        ""6            - [ ] Item 2.1   ->     - [ ] Item 1 (C)
-        ""7        - [ ] Item 3 (A)     ->         - [ ] Item 1.1
-        ""8            - [ ] Item 3.1   ->         - [ ] Item 1.2  
-        ""9    - [ ] SuperItem  2 (A)
+    it 'should sort a subblock of items'
+        "1    - [ ] SuperItem  1 (B)
+        "2        - [ ] Item 1 (C)     ->     - [ ] Item 3 (A)
+        "3            - [ ] Item 1.1   ->         - [ ] Item 3.1
+        "4            - [ ] Item 1.2   ->     - [ ] Item 2 (B)
+        "5        - [ ] Item 2 (B)     ->         - [ ] Item 2.1
+        "6            - [ ] Item 2.1   ->     - [ ] Item 1 (C)
+        "7        - [ ] Item 3 (A)     ->         - [ ] Item 1.1
+        "8            - [ ] Item 3.1   ->         - [ ] Item 1.2  
+        "9    - [ ] SuperItem  2 (A)
 
-        "call setline(1, '    - [ ] SuperItem 1 (B)')
-        "call setline(2, '        - [ ] Item 1 (C)')
-        "call setline(3, '            - [ ] Item 1.1')
-        "call setline(4, '            - [ ] Item 1.2')
-        "call setline(5, '        - [ ] Item 2 (B)')
-        "call setline(6, '            - [ ] Item 2.1')
-        "call setline(7, '        - [ ] Item 3 (A)')
-        "call setline(8, '            - [ ] Item 3.1')
-        "call setline(9, '    - [ ] SuperItem 2 (A)')
+        call setline(1, '    - [ ] SuperItem 1 (B)')
+        call setline(2, '        - [ ] Item 1 (C)')
+        call setline(3, '            - [ ] Item 1.1')
+        call setline(4, '            - [ ] Item 1.2')
+        call setline(5, '        - [ ] Item 2 (B)')
+        call setline(6, '            - [ ] Item 2.1')
+        call setline(7, '        - [ ] Item 3 (A)')
+        call setline(8, '            - [ ] Item 3.1')
+        call setline(9, '    - [ ] SuperItem 2 (A)')
 
-        "norm! 2G
-        "call InvokePrivate('s:sort_items', [])
+        norm! 2G
+        call InvokePrivate('s:sort_items', [])
 
-        "Expect getline(1) == '    - [ ] SuperItem 1 (B)'
-        "Expect getline(2) == '        - [ ] Item 3 (A)'
-        "Expect getline(3) == '            - [ ] Item 3.1'
-        "Expect getline(4) == '        - [ ] Item 2 (B)'
-        "Expect getline(5) == '            - [ ] Item 2.1'
-        "Expect getline(6) == '        - [ ] Item 1 (C)'
-        "Expect getline(7) == '            - [ ] Item 1.1'
-        "Expect getline(8) == '            - [ ] Item 1.2'
-        "Expect getline(9) == '    - [ ] SuperItem 2 (A)'
-    "end
+        Expect getline(1) == '    - [ ] SuperItem 1 (B)'
+        Expect getline(2) == '        - [ ] Item 3 (A)'
+        Expect getline(3) == '            - [ ] Item 3.1'
+        Expect getline(4) == '        - [ ] Item 2 (B)'
+        Expect getline(5) == '            - [ ] Item 2.1'
+        Expect getline(6) == '        - [ ] Item 1 (C)'
+        Expect getline(7) == '            - [ ] Item 1.1'
+        Expect getline(8) == '            - [ ] Item 1.2'
+        Expect getline(9) == '    - [ ] SuperItem 2 (A)'
+    end
 
-    "it 'should sort only the items and not the comments'
-        "call setline(1, '# Comment here')
-        "call setline(2, '    - [ ] SuperItem 1 (B)')
-        "call setline(3, '    - [ ] SuperItem 2 (A)')
+    it 'should sort only the items and not the comments'
+        call setline(1, '# Comment here')
+        call setline(2, '    - [ ] SuperItem 1 (B)')
+        call setline(3, '    - [ ] SuperItem 2 (A)')
 
-        "call InvokePrivate('s:sort_items', [])
+        call InvokePrivate('s:sort_items', [])
 
-        "Expect getline(1) == '# Comment here'
-        "Expect getline(2) == '    - [ ] SuperItem 2 (A)'
-        "Expect getline(2) == '    - [ ] SuperItem 1 (B)'
-    "end
+        Expect getline(1) == '# Comment here'
+        Expect getline(2) == '    - [ ] SuperItem 2 (A)'
+        Expect getline(3) == '    - [ ] SuperItem 1 (B)'
+    end
 end
