@@ -54,7 +54,7 @@ fu! CollapsedItemText()
         if indent(lnum) == l:curr_indent + 4
             let l:itemsno += 1
             " the item is marked 
-            if getline(lnum) =~ '^\s*- \[[x]\] (\d\{4}-\d\{2}-\d\{2} \d\{2}:\d\{2}:\d\{2})'
+            if getline(lnum) =~ '^\s*- \[[x]\].\{-}'
                 let l:completed_items += 1
             endif
         endif
@@ -64,12 +64,8 @@ fu! CollapsedItemText()
 endfu
 set foldtext=CollapsedItemText()
 
-" Subitems tree
-let s:subitems_tree = {}
-" Item's attached lines
-let s:attached_lines = {}
-
 " }}}
+
 
 " Private functions {{{
 
@@ -95,8 +91,9 @@ fu! s:insert_new_item(lineno)
         let l:indentation_level = <SID>indentation_level(a:lineno)
         let l:spaces = repeat(' ', l:indentation_level * g:todo_tab_size)
     endif
-    put! = l:spaces.'- [ ]' 
-    exe 'normal! A '.g:todo_dummy_item
+    put! = l:spaces.'- [ ] ' 
+    exe 'normal! A'.g:todo_dummy_item
+    :startinsert!
 endfu
 
 " Inserts a new subitem for the item in the current line. 
@@ -115,9 +112,10 @@ fu! s:insert_new_subitem(item_lineno)
 
         let l:spaces = repeat(' ', (l:indentation_level + 1) * g:todo_tab_size)
 
-        exe 'normal! '.a:item_lineno.'G'
-        put = l:spaces.'- [ ]'
-        exe 'normal! A '.g:todo_dummy_item
+        call cursor(a:item_lineno, 1)
+        put = l:spaces.'- [ ] '
+        exe 'normal! A'.g:todo_dummy_item
+        :startinsert!
     else
         echom "There's no item under cursor"
     endif
@@ -127,8 +125,13 @@ endfu
 " Marks an item and adds the current date an hour 
 " Returns the amount of items marked
 fu! s:mark_item_as_done(lineno) 
+
+    if !<SID>contains_item(getline(a:lineno))
+        echom "There's no item under cursor"
+        return
+    endif
     let l:date=strftime("%Y-%m-%d %H:%M:%S")
-    :call <SID>preserve(':silent! :'.a:lineno.'s/^\(\s*- [-+*]\?\s*\)\[ \]/\1[x]\ on\ '.l:date.'\ |\ /')
+    :call <SID>preserve(':silent! :'.a:lineno.'s/^\(\s*- [-+*]\?\s*\)\[ \]/\1[x]\ on\ '.l:date.'\ |/')
 
     " We need to check for subitems
     let l:next_item        = a:lineno + 1
@@ -145,7 +148,7 @@ endfu
 " Unmarks the item and removes the date
 fu! s:mark_item_as_undone(lineno)
     let l:checkbox_regex='^\(\s*[-+*]\?\s*\)\[x\]\s'
-    let l:date_regex='on\s\d\{4}-\d\{2}-\d\{2}\s\d\{2}:\d\{2}:\d\{2}\ | '
+    let l:date_regex='on\s\d\{4}-\d\{2}-\d\{2}\s\d\{2}:\d\{2}:\d\{2}\ |'
     :call s:preserve(':silent! :'.a:lineno.'s/'.l:checkbox_regex.l:date_regex.'/\1[ ]/')
 
     " We need to check for subitems
@@ -163,7 +166,7 @@ endfu
 " Toggle mark
 fu! s:mark_item()
     let l:item = getline(line('.'))
-    if match(l:item, '\s*-\s\[[\ ]\]') == -1 
+    if match(l:item, '^\s*-\ \[[\ ]\]') == -1 
         call <SID>mark_item_as_undone(line('.'))
     else
         call <SID>mark_item_as_done(line('.'))
@@ -207,7 +210,6 @@ fu! s:get_next_char(letter)
     return nr2char(char2nr(a:letter) + 1)
 endfu
 
-
 fu! s:build_tree()
     call cursor(1,1)
     return <SID>mix_branches('A', search('[\s]*-\ \[[x\ ]\]', 'c'), {}, {})
@@ -217,14 +219,18 @@ fu! s:mix_branches(root, curr, tree, superitem)
     if a:curr == 0
         return [a:tree, a:superitem]
     endif
-    let [l:curr, l:tree, l:superitem] = <SID>build_subitems_branch(a:root, a:curr, a:tree, a:superitem)
+    let [l:curr, l:tree, l:superitem] = <SID>build_subitems_branch(a:root, 
+                                                                \ a:curr, 
+                                                                \ a:tree, 
+                                                                \ a:superitem)
 
     if l:curr > line('$')
         return [l:tree, l:superitem]
     endif
 
     call cursor(l:curr, 1)
-    return <SID>mix_branches(<SID>get_next_char(a:root), search('[\s]*-\ \[[x\ ]\]', 'c'), l:tree, l:superitem)
+    return <SID>mix_branches(<SID>get_next_char(a:root), 
+                \ search('[\s]*-\ \[[x\ ]\]', 'c'), l:tree, l:superitem)
 endfu
 
 " This function builds a tree branch and returns [current_line, branch]
@@ -275,29 +281,37 @@ endfu
 " Undone without priority : ^ 
 " Done with priority      : tolowercase (A -> a)
 " Done without priority   : ~
-fu! GetItemPriority(item)
+fu! s:get_item_priority(item)
     let l:priority = matchstr(a:item , '([A-Z])$')
-    let is_done    = match(a:item, '\s*-\s\[[\ ]\]') == -1
+    let is_done    = match(a:item, '^\s*-\s\[[\ ]\]') == -1
 
-    return !is_done && l:priority != "" ? l:priority[1] : 
-         \ !is_done && l:priority == "" ? '^' :
-         \ is_done && l:priority != "" ? tolower(l:priority[1]) : "~"
-
-    return l:priority != "" ? 
-                \ l:priority[1] : match(a:item, '\s*-\s\[[\ ]\]') != -1 ? '@' : '~'
+    return !is_done && l:priority != "" ? char2nr(l:priority[1]) : 
+         \ !is_done && l:priority == "" ? char2nr('^') :
+         \ is_done && l:priority != "" ? char2nr(tolower(l:priority[1])) : char2nr('~')
 endfu
+
+
 
 " Comparison for the sort() function
-fu! ItemComparison(i1,i2)
-    let l:i1_prior = GetItemPriority(a:i1[0])
-    let l:i2_prior = GetItemPriority(a:i2[0])
+fu! s:todo_item_comparison(i1,i2)
+    let l:i1_prior = <SID>get_item_priority(getline(a:i1))
+    let l:i2_prior = <SID>get_item_priority(getline(a:i2))
+    let l:dnr = char2nr('D')
 
-    return l:i1_prior == l:i2_prior ? 0 : l:i1_prior < l:i2_prior ? -1 : 1
+    "" Taking (D) priority as 'doing' so is better and needs to sort before
+    "" but if the item is done, then it is taken as D priority 
+    if l:i1_prior == l:dnr && l:i2_prior != l:dnr 
+        return -1
+    elseif l:i2_prior == l:dnr && l:i1_prior != l:dnr 
+        return 1
+    else
+        return l:i1_prior - l:i2_prior 
+    endif
 endfu
 
 
 
-fu! s:get_item_block(line)
+fu! s:todo_item_block(line)
     let l:block = []
 
     call add(l:block, getline(a:line))
@@ -312,36 +326,54 @@ fu! s:get_item_block(line)
     return l:block
 endfu
 
-" Sorts the items keeping the subitems attached to their superitems
-fu! s:sort_items() range
+fu! s:todo_sort()
+    " Save cursor position and last search
+    let _s = @/
+    let l  = line(".")
+    let c  = col(".")
+
     let [l:tree, l:superitems] = <SID>build_tree()
 
-    let l:superitem = <SID>super(a:firstline, 0, l:superitems)
+    " Sort the items
 
-    " Trying to sort over a non-item
-    if char2nr(l:superitem) == 48
-        if a:firstline == line('$')
-            return []
+    let l:sorted_items = []
+    " In case there are several lists on the file
+    for l:super in keys(l:tree)
+        " Only take the super items A,B,C,...
+        if char2nr(l:super) > 57
+            let l:sorted_items += <SID>sort_items(l:tree, l:super, l:superitems)
         endif
-
-        call cursor(a:firstline + 1, 1)
-        return <SID>sort_items()
-    endif
-
-    let l:list = copy(l:tree[l:superitem])
-    call map(l:list, '[getline(v:val), v:val]')
-
-    let l:sorted_list   = sort(l:list, 'ItemComparison')
-    let l:position      = l:superitem + 1
-    let l:sorted_lines  = []
-
-    for l:item in l:sorted_list
-        let l:sorted_lines += <SID>get_item_block(l:item[1])
     endfor
 
+    " Recover cursor position and last search
+    let @/ = _s
+    :call cursor(l, c)
 
+    return l:sorted_items 
+endfu
 
-    let l:min_line = min(l:tree[l:superitem])
+" Sorts the items keeping the subitems attached to their superitems
+fu! s:sort_items(tree, superitem, superitems) range
+
+    if !has_key(a:tree, a:superitem)
+        return []
+    endif
+
+    let l:list = copy(a:tree[a:superitem])
+    " We iterate over superitem's childrens in order to recur on them
+    for l:elem in l:list
+        call <SID>sort_items(a:tree, l:elem, a:superitems)
+    endfor
+
+    let l:sorted_list  = sort(l:list, 's:todo_item_comparison')
+    let l:position     = a:superitem + 1
+    let l:sorted_lines = []
+
+    for l:item in l:sorted_list
+        let l:sorted_lines += <SID>todo_item_block(l:item)
+    endfor
+
+    let l:min_line = min(a:tree[a:superitem])
     call setline(l:min_line, l:sorted_lines)
 
     return l:sorted_lines
@@ -354,29 +386,18 @@ endfu
 
 " Checks if the string string contains a todo item
 fu! s:contains_item(string)
-    let l:item = matchstr(a:string, '^\s*- \[[x\ ]\]')
-    return l:item != ""
+    return matchstr(a:string, '^\s*-\ \[[x\ ]\].\{-}') != ""
 endfu
 " }}}
 
 " Public API {{{
-
-" Init required variables
-fu! SetEnv()
-    let s:superitem = {}
-endfu
-
-" Clean the environment
-fu! CleanEnv()
-    unlet s:superitem
-endfu
 
 " Scope to access s:* variables
 fu! SScope()
     return s:
 endfu
 
-" External accesor to s: scope
+" External accesor to s: scope functions
 fu! SID()
     return maparg('<SID>', 'n')
 endfu
@@ -403,22 +424,22 @@ inore <buffer> <silent> <S-Right> <C-O>zc
 
 " Items maps
 nnore <buffer> <silent> <Plug>(fancy-todo-insert-item) :NewItem<cr>
-inore <buffer> <silent> <Plug>(fancy-todo-insert-item) :NewItem<cr>
-vnore <buffer> <silent> <Plug>(fancy-todo-insert-item) :NewItem<cr>
+inore <buffer> <silent> <Plug>(fancy-todo-insert-item) <Esc>:NewItem<cr>
+vnore <buffer> <silent> <Plug>(fancy-todo-insert-item) <Esc>:NewItem<cr>
 
 nnore <buffer> <silent> <Plug>(fancy-todo-insert-subitem) :NewSubItem<cr>
-inore <buffer> <silent> <Plug>(fancy-todo-insert-subitem) :NewSubItem<cr>
-vnore <buffer> <silent> <Plug>(fancy-todo-insert-subitem) :NewSubItem<cr>
+inore <buffer> <silent> <Plug>(fancy-todo-insert-subitem) <Esc>:NewSubItem<cr>
+vnore <buffer> <silent> <Plug>(fancy-todo-insert-subitem) <Esc>:NewSubItem<cr>
 
 " Marking maps
 nnore <buffer> <silent> <Plug>(fancy-todo-mark) :MarkItem<cr>
-inore <buffer> <silent> <Plug>(fancy-todo-mark) :MarkItem<cr>
-vnore <buffer> <silent> <Plug>(fancy-todo-mark) :MarkItem<cr>
+inore <buffer> <silent> <Plug>(fancy-todo-mark) <Esc>:MarkItem<cr>
+vnore <buffer> <silent> <Plug>(fancy-todo-mark) <Esc>:MarkItem<cr>
 
 " Sorting maps
 nnore <buffer> <silent> <Plug>(fancy-todo-sort) :SortItems<cr>
-inore <buffer> <silent> <Plug>(fancy-todo-sort) :SortItems<cr>
-vnore <buffer> <silent> <Plug>(fancy-todo-sort) :SortItems<cr>
+inore <buffer> <silent> <Plug>(fancy-todo-sort) <Esc>:SortItems<cr>
+vnore <buffer> <silent> <Plug>(fancy-todo-sort) <Esc>:SortItems<cr>
 
 " User's maps 
 " Sorting

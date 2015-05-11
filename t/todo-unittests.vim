@@ -1,6 +1,6 @@
 runtime! ftplugin/todo.vim 
 
-let g:marked_item_regex = '\s*-\ \[x\]\ on\ \d\{4}-\d\{2}-\d\{2}\ \d\{2}:\d\{2}:\d\{2}\ |\ '
+let g:marked_item_regex = '\s*-\ \[[x]\]\ on\ \d\{4}-\d\{2}-\d\{2}\ \d\{2}:\d\{2}:\d\{2}\ |'
 
 " Function to inkove a private function
 fu! InvokePrivate(function, arguments)
@@ -69,17 +69,19 @@ describe 'items insertion'
     end
 
     it 'adds a new item on empty line and inserts dummy phrase as item'
-        normal! dd " Remove the first line
+        " Remove the first line
+        normal! ggdd 
         let g:todo_dummy_item = 'Item description'
         call InvokePrivate('s:insert_new_item', [1])
         Expect getline(1) == '- [ ] Item description'
     end
 
     it 'adds a new item on empty line'
-        normal! dd " Remove the first line
+        " Remove the first line
+        normal! ggdd 
         call InvokePrivate('s:insert_new_item', [1])
         Expect getline(1) == '- [ ] '
-        Expect col('.') == 6
+        Expect col('.') == 7
         Expect line('.') == 1
     end
 
@@ -384,137 +386,134 @@ describe 'sorting items'
     end
 
 
-
-
-    "it 'should build the subitems tree storing line -> number_of_subitems'
-        ""1    - [ ]
-        ""2        - [ ]
-        ""3        - [ ]
-        ""4            - [ ]
-        ""5            - [ ]
-        ""6                - [ ]
-        ""7                - [ ]
-        ""8            - [ ]
-        ""9        - [ ]
-
-        "call setline(1, '    - [ ]')
-        "call setline(2, '        - [ ]')
-        "call setline(3, '        - [ ]')
-        "call setline(4, '            - [ ]')
-        "call setline(5, '            - [ ]')
-        "call setline(6, '                - [ ]')
-        "call setline(7, '                - [ ]')
-        "call setline(8, '            - [ ]')
-        "call setline(9, '        - [ ]')
-
-        "call SetEnv()
-        "call InvokePrivate('s:build_subitems_tree', [0, 0])
-        "let l:scope = SScope()
-        "let l:subitems = l:scope['subitems_tree']
-        "let l:attached_lines = l:scope['attached_lines']
-
-        "Expect get(l:subitems, 0, []) == [1]
-        "Expect get(l:subitems, 1, []) == [2,3,9]
-        "Expect get(l:subitems, 2, []) == []
-        "Expect get(l:subitems, 3, []) == [4,5,8]
-        "Expect get(l:subitems, 4, []) == []
-        "Expect get(l:subitems, 5, []) == [6,7]
-        "Expect get(l:subitems, 6, []) == []
-        "Expect get(l:subitems, 7, []) == []
-        "Expect get(l:subitems, 8, []) == []
-        "Expect get(l:subitems, 9, []) == []
-
-        "Expect get(l:attached_lines, 0, -1) == 9
-        "Expect get(l:attached_lines, 1, -1) == 8
-        "Expect get(l:attached_lines, 2, -1) == 0
-        "Expect get(l:attached_lines, 3, -1) == 5
-        "Expect get(l:attached_lines, 4, -1) == 0
-        "Expect get(l:attached_lines, 5, -1) == 2
-        "Expect get(l:attached_lines, 6, -1) == 0
-        "Expect get(l:attached_lines, 7, -1) == 0
-        "Expect get(l:attached_lines, 8, -1) == 0
-        "Expect get(l:attached_lines, 9, -1) == 0
-
-        "call CleanEnv()
-    "end
-
-    "it 'should build a tree ignoring non-items and comments'
-        ""1 # Comment
-        ""2 - [ ] Item 1
-        ""3
-        ""4     - [ ] Item 1.1
-        ""5 - [ ] Item 2
-        
-        "call setline(1, '# Comment')
-        "call setline(2, '- [ ] Item 1')
-        "call setline(3, '')
-        "call setline(4, '    - [ ] Item 1.1')
-        "call setline(5, '- [ ] Item 2')
-
-        "call SetEnv()
-        "call InvokePrivate('s:build_subitems_tree', [0, 0])
-        "let l:scope = SScope()
-        "let l:subitems = l:scope['subitems_tree']
-        "let l:attached_lines = l:scope['attached_lines']
-
-        "Expect get(l:subitems, 0, []) == [2, 5]
-        "Expect get(l:subitems, 1, []) == []
-        "Expect get(l:subitems, 2, []) == [4]
-        "Expect get(l:subitems, 3, []) == []
-        "Expect get(l:subitems, 4, []) == []
-        "Expect get(l:subitems, 5, []) == []
-        "call CleanEnv()
-    "end
-
     it 'should get priorty from A to Z, done or undone'
 
-        let l:item_priority = GetItemPriority('    - [ ] Item 1')
-        Expect l:item_priority == '^'
+        let l:item_priority = InvokePrivate('s:get_item_priority', ['- [ ] Item 1'])
+        Expect l:item_priority == char2nr('^')
 
-        let l:item_priority = GetItemPriority('    - [x] Item 1')
-        Expect l:item_priority == '~'
+        let l:item_priority = InvokePrivate('s:get_item_priority', ['- [ ] Item 1 (A)'])
+        Expect l:item_priority == char2nr('A')
 
-        let l:item_priority = GetItemPriority('    - [x] Item 1 (A)')
-        Expect l:item_priority == "a"
+        let l:item_priority = InvokePrivate('s:get_item_priority', ['- [x] Item 1'])
+        Expect l:item_priority == char2nr('~')
+
+        let l:item_priority = InvokePrivate('s:get_item_priority', ['- [x] Item 1 (A)'])
+        Expect l:item_priority == char2nr('a')
     end
 
     it 'should say that done is greater than undone priority'
-        Expect ItemComparison(['    - [ ]', 1],['    - [x]', 2]) ==  -1
+        call setline(1, '- [ ]')
+        call setline(2, '- [x]')
+        Expect InvokePrivate('s:todo_item_comparison', [ 1, 2 ]) < 0
     end
 
     it 'should say that B is greater than A priority'
-        Expect ItemComparison(['    - [ ] (A)', 1],['    - [ ] (B)', 2]) ==  -1
+        call setline(1, '- [ ] (A)')
+        call setline(2, '- [ ] (B)')
+        Expect InvokePrivate('s:todo_item_comparison', [ 1, 2 ]) < 0
     end
 
     it 'should say that A is greater than B priority due the A status'
-        Expect ItemComparison(['    - [x] (A)', 1],['    - [ ] (B)', 2]) ==  1
+        call setline(1, '- [x] (A)')
+        call setline(2, '- [ ] (B)')
+        Expect InvokePrivate('s:todo_item_comparison', [ 1, 2 ]) > 0 
     end
-    it 'should sort the list of pairs [line text, line number] by priority'
-        "1    - [x] (date time)         -> - [ ] Item 2
-        "2    - [ ] Item 2              -> - [ ] Item 4
-        "3    - [x] Item 3(date time)   -> - [x] Item 1
-        "4    - [ ] Item 4              -> - [x] Item 3
+
+    it 'should get the subitem in a list'
+        call setline(1, '- [ ] Item1')
+        call setline(2, '    - [ ] Item1.1')
+        Expect InvokePrivate('s:todo_item_block', [ 1 ]) == getline(1,2)
+    end
+
+    it 'should get the subitem tree in a list'
+        call setline(1, '- [ ] Item1')
+        call setline(2, '    - [ ] Item1.1')
+        call setline(3, '    - [ ] Item1.2')
+        call setline(4, '        - [ ] Item1.2.1')
+        call setline(5, '    - [ ] Item1.3')
+        Expect InvokePrivate('s:todo_item_block', [ 1 ]) == getline(1,5)
+    end
+
+    it 'should sort a 2-item list'
+        "1 - [ ] Item1 (B) -> 1 - [ ] Item1 (A)
+        "2 - [ ] Item2 (A) -> 2 - [ ] Item2 (B)
+        call setline(1, '- [ ] Item1 (B)')
+        call setline(2, '- [ ] Item2 (A)')
+
+        call cursor(1,1)
+        call InvokePrivate('s:todo_sort', [])
+
+        Expect getline(1) == '- [ ] Item2 (A)' 
+        Expect getline(2) == '- [ ] Item1 (B)' 
+    end
+
+    it 'should sort subitems list'
+        "1 - [ ] Item1 (B)     -> 1 - [ ] Item1 (B)
+        "2     - [ ] Item2 (B) -> 2     - [ ] Item3 (A)
+        "3     - [ ] Item3 (A) -> 3     - [ ] Item2 (B)
+
+        call setline(1, '- [ ] Item1 (B)')
+        call setline(2, '    - [ ] Item2 (B)')
+        call setline(3, '    - [ ] Item3 (A)')
+
+        call cursor(1,1)
+        call InvokePrivate('s:todo_sort', [])
+
+        Expect getline(1) == '- [ ] Item1 (B)' 
+        Expect getline(2) == '    - [ ] Item3 (A)' 
+        Expect getline(3) == '    - [ ] Item2 (B)' 
+    end
+
+    it 'should sort superitem and subitem lists'
+        "1 - [ ] Item1 (B)     -> 1 - [ ] Item4 (A)
+        "2     - [ ] Item2 (B) -> 2 - [ ] Item1 (B)
+        "3     - [ ] Item3 (A) -> 3     - [ ] Item2 (B)
+        "4 - [ ] Item4 (A)     -> 4     - [ ] Item3 (A)
+
+        call setline(1, '- [ ] Item1 (B)')
+        call setline(2, '    - [ ] Item2 (B)')
+        call setline(3, '    - [ ] Item3 (A)')
+        call setline(4, '- [ ] Item4 (A)')
+
+        call cursor(1,1)
+        call InvokePrivate('s:todo_sort', [])
+
+        Expect getline(1) == '- [ ] Item4 (A)' 
+        Expect getline(2) == '- [ ] Item1 (B)' 
+        Expect getline(3) == '    - [ ] Item3 (A)' 
+        Expect getline(4) == '    - [ ] Item2 (B)' 
+    end
+
+    it 'should recursively sort lines'
+        "1 - [ ] Item1 (B)         
+        "2     - [ ] Item2 (B)     
+        "3         - [ ] Item3 (B) 
+        "4     - [ ] Item4 (A)     
+        "5 - [ ] Item5 (A)         
+        "6     - [ ] Item6 (B)     
+        "7     - [ ] Item7 (C) 
+        "8     - [ ] Item8 (A)     
         
-        call setline(1, '    - [x] Item 1 (2015-12-12 12:12:12)')
-        call setline(2, '    - [ ] Item 2')
-        call setline(3, '    - [x] Item 3 (2015-12-12 12:12:12)')
-        call setline(4, '    - [ ] Item 4')
+        call setline(1, '- [ ] Item1 (B)')
+        call setline(2, '    - [ ] Item2 (B)')
+        call setline(3, '        - [ ] Item3 (B)')
+        call setline(4, '    - [ ] Item4 (A)')
+        call setline(5, '- [ ] Item5 (A)')
+        call setline(6, '    - [ ] Item6 (B)')
+        call setline(7, '    - [ ] Item7 (C)')
+        call setline(8, '    - [ ] Item8 (A)')
 
-        let l:list = [ 1, 2, 3, 4 ]
+        call cursor(1,1)
+        call InvokePrivate('s:todo_sort', [])
 
-        call map(l:list, '[getline(v:val), v:val]')
-
-        Expect l:list[0] == [ getline(1), 1 ]
-        Expect l:list[1] == [ getline(2), 2 ]
-        Expect l:list[2] == [ getline(3), 3 ]
-        Expect l:list[3] == [ getline(4), 4 ]
-
-        call sort(l:list, 'ItemComparison')
-        Expect l:list[0] == [ getline(2), 2 ]
-        Expect l:list[1] == [ getline(4), 4 ]
-        Expect l:list[2] == [ getline(1), 1 ]
-        Expect l:list[3] == [ getline(3), 3 ]
-
+        Expect getline(1) == '- [ ] Item5 (A)'
+        Expect getline(2) == '    - [ ] Item8 (A)'
+        Expect getline(3) == '    - [ ] Item6 (B)'
+        Expect getline(4) == '    - [ ] Item7 (C)'
+        Expect getline(5) == '- [ ] Item1 (B)'
+        Expect getline(6) == '    - [ ] Item4 (A)'
+        Expect getline(7) == '    - [ ] Item2 (B)'
+        Expect getline(8) == '        - [ ] Item3 (B)'
     end
 
     it 'should sort a simple list without priority keeping completed items at the end'
@@ -528,8 +527,9 @@ describe 'sorting items'
         call setline(3, '    - [x] Item 3 (2015-12-12 12:12:12)')
         call setline(4, '    - [ ] Item 4')
 
-        "Expect InvokePrivate('s:sort_items', []) == []
-        call InvokePrivate('s:sort_items', [])
+        call cursor(1,1)
+        call InvokePrivate('s:todo_sort', [])
+
         Expect getline(1) == '    - [ ] Item 2'
         Expect getline(2) == '    - [ ] Item 4'
         Expect getline(3) == '    - [x] Item 1 (2015-12-12 12:12:12)'
@@ -547,9 +547,11 @@ describe 'sorting items'
         call setline(3, '    - [x] Item 3 (2015-12-12 12:12:12)(A)')
         call setline(4, '    - [ ] Item 4                      (D)')
 
-        call InvokePrivate('s:sort_items', [])
-        Expect getline(1) == '    - [ ] Item 2                      (B)'
-        Expect getline(2) == '    - [ ] Item 4                      (D)'
+        call cursor(1,1)
+        call InvokePrivate('s:todo_sort', [])
+
+        Expect getline(1) == '    - [ ] Item 4                      (D)'
+        Expect getline(2) == '    - [ ] Item 2                      (B)'
         Expect getline(3) == '    - [x] Item 3 (2015-12-12 12:12:12)(A)'
         Expect getline(4) == '    - [x] Item 1 (2015-12-12 12:12:12)(C)'
     end
@@ -571,7 +573,9 @@ describe 'sorting items'
         call setline(6, '    - [ ] Item 3 (A)')
         call setline(7, '        - [ ] Item 3.1')
 
-        call InvokePrivate('s:sort_items', [])
+
+        call cursor(1,1)
+        call InvokePrivate('s:todo_sort', [])
 
         Expect getline(1) == '    - [ ] Item 3 (A)'
         Expect getline(2) == '        - [ ] Item 3.1'
@@ -582,50 +586,18 @@ describe 'sorting items'
         Expect getline(7) == '        - [ ] Item 1.2'
     end
 
-    it 'should sort a subblock of items'
-        "1    - [ ] SuperItem  1 (B)
-        "2        - [ ] Item 1 (C)     ->     - [ ] Item 3 (A)
-        "3            - [ ] Item 1.1   ->         - [ ] Item 3.1
-        "4            - [ ] Item 1.2   ->     - [ ] Item 2 (B)
-        "5        - [ ] Item 2 (B)     ->         - [ ] Item 2.1
-        "6            - [ ] Item 2.1   ->     - [ ] Item 1 (C)
-        "7        - [ ] Item 3 (A)     ->         - [ ] Item 1.1
-        "8            - [ ] Item 3.1   ->         - [ ] Item 1.2  
-        "9    - [ ] SuperItem  2 (A)
-
-        call setline(1, '    - [ ] SuperItem 1 (B)')
-        call setline(2, '        - [ ] Item 1 (C)')
-        call setline(3, '            - [ ] Item 1.1')
-        call setline(4, '            - [ ] Item 1.2')
-        call setline(5, '        - [ ] Item 2 (B)')
-        call setline(6, '            - [ ] Item 2.1')
-        call setline(7, '        - [ ] Item 3 (A)')
-        call setline(8, '            - [ ] Item 3.1')
-        call setline(9, '    - [ ] SuperItem 2 (A)')
-
-        norm! 2G
-        call InvokePrivate('s:sort_items', [])
-
-        Expect getline(1) == '    - [ ] SuperItem 1 (B)'
-        Expect getline(2) == '        - [ ] Item 3 (A)'
-        Expect getline(3) == '            - [ ] Item 3.1'
-        Expect getline(4) == '        - [ ] Item 2 (B)'
-        Expect getline(5) == '            - [ ] Item 2.1'
-        Expect getline(6) == '        - [ ] Item 1 (C)'
-        Expect getline(7) == '            - [ ] Item 1.1'
-        Expect getline(8) == '            - [ ] Item 1.2'
-        Expect getline(9) == '    - [ ] SuperItem 2 (A)'
-    end
-
     it 'should sort only the items and not the comments'
         call setline(1, '# Comment here')
-        call setline(2, '    - [ ] SuperItem 1 (B)')
-        call setline(3, '    - [ ] SuperItem 2 (A)')
+        call setline(2, '- [ ] SuperItem 1')
+        call setline(3, '- [ ] SuperItem 2 (B)')
+        call setline(4, '- [ ] SuperItem 3 (A)')
 
-        call InvokePrivate('s:sort_items', [])
+        call cursor(1,1)
+        call InvokePrivate('s:todo_sort', [])
 
         Expect getline(1) == '# Comment here'
-        Expect getline(2) == '    - [ ] SuperItem 2 (A)'
-        Expect getline(3) == '    - [ ] SuperItem 1 (B)'
+        Expect getline(2) == '- [ ] SuperItem 3 (A)'
+        Expect getline(3) == '- [ ] SuperItem 2 (B)'
+        Expect getline(4) == '- [ ] SuperItem 1'
     end
 end

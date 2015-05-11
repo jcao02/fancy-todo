@@ -1,6 +1,13 @@
 # Things todo for fancy-todo-vim
 
 - [ ] Add formatting and metions in syntax highlight
+- [ ] Add new items below current item (and subitems)
+- [ ] Add help documentation 
+- [x] on 2015-05-10 21:46:32 |  Add global sorting
+- [ ] Add new item when pressing enter
+- [ ] Downgrade current item level using tab
+- [x] on 2015-05-10 21:46:25 |  Add "Doing" status
+- [ ] Add syntax highlight for new marked items
 - [x] on 2015-04-18 18:56:47 | Add syntax highlight for todo.md file (for github)
 - [x] on 2015-04-19 11:41:57 | Move cursor to end of line when adding item + 1
-- [ ] Add sort for every scope
+- [x] on 2015-04-21 14:50:43 | Add sort for every scope
