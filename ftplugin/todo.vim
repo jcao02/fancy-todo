@@ -407,7 +407,7 @@ nnoremap <SID> <SID>
 
 " Commands {{{
 
-command! SortItems call <SID>sort_items()
+command! SortItems call <SID>todo_sort()
 command! MarkItem  call <SID>mark_item()
 command! NewItem call <SID>insert_new_item(line('.'))
 command! NewSubItem call <SID>insert_new_subitem(line('.'))
