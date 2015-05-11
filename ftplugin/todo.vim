@@ -14,7 +14,6 @@ let g:loaded_fancy_todo = 1
 " }}}
 
 " Config options {{{
-
 if !exists('g:max_nested_items')
     let g:max_nested_items = 4
 endif
@@ -82,6 +81,9 @@ fu! s:preserve(command)
 endfu
 
 
+fu! s:insert_new_item_over_item(lineno)
+endfu
+
 " Inserts a new item in the current line. 
 " If there's already an item, moves the item to the next line
 fu! s:insert_new_item(lineno)
@@ -90,8 +92,10 @@ fu! s:insert_new_item(lineno)
     if <SID>contains_item(getline(a:lineno))
         let l:indentation_level = <SID>indentation_level(a:lineno)
         let l:spaces = repeat(' ', l:indentation_level * g:todo_tab_size)
+        put = l:spaces.'- [ ] ' 
+    else
+        put! = l:spaces.'- [ ] ' 
     endif
-    put! = l:spaces.'- [ ] ' 
     exe 'normal! A'.g:todo_dummy_item
     :startinsert!
 endfu
@@ -388,6 +392,14 @@ endfu
 fu! s:contains_item(string)
     return matchstr(a:string, '^\s*-\ \[[x\ ]\].\{-}') != ""
 endfu
+
+fu! s:downgrade_item(lineno)
+    echo a:lineno
+    let l:item_indentation = <SID>indentation_level(a:lineno)
+    let l:new_indentation  = repeat(' ', g:todo_tab_size)
+    call setline(a:lineno, l:new_indentation . getline(a:lineno))
+    exe 'norm! '.a:lineno.'G$'
+endfu
 " }}}
 
 " Public API {{{
@@ -411,6 +423,7 @@ command! SortItems call <SID>todo_sort()
 command! MarkItem  call <SID>mark_item()
 command! NewItem call <SID>insert_new_item(line('.'))
 command! NewSubItem call <SID>insert_new_subitem(line('.'))
+command! DowngradeItem call <SID>downgrade_item(line('.'))
 
 " }}}
 
@@ -430,6 +443,9 @@ vnore <buffer> <silent> <Plug>(fancy-todo-insert-item) <Esc>:NewItem<cr>
 nnore <buffer> <silent> <Plug>(fancy-todo-insert-subitem) :NewSubItem<cr>
 inore <buffer> <silent> <Plug>(fancy-todo-insert-subitem) <Esc>:NewSubItem<cr>
 vnore <buffer> <silent> <Plug>(fancy-todo-insert-subitem) <Esc>:NewSubItem<cr>
+
+nnore <buffer> <Plug>(fancy-todo-downgrade-item) :DowngradeItem<cr>i
+inore <buffer> <Plug>(fancy-todo-downgrade-item) <Esc>:DowngradeItem<cr>i
 
 " Marking maps
 nnore <buffer> <silent> <Plug>(fancy-todo-mark) :MarkItem<cr>
@@ -485,4 +501,5 @@ endif
 if !hasmapto('<Leader>o', 'i')
     imap <Leader>o <Plug>(fancy-todo-insert-subitem)
 endif
+
 " }}}

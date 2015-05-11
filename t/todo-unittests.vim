@@ -55,6 +55,11 @@ describe 'auxiliar functions'
     it 'should get the 2nd level super item of an item'
         Expect InvokePrivate('s:super', [ 4, 2, { 4 : 3, 3 : 2, 2 : 1 } ] ) == 1
     end
+
+    it 'should downgrade item indentation level'
+        call InvokePrivate('s:downgrade_item', [1])
+        Expect getline(1) == '        - [ ]'
+    end
 end
 
 describe 'items insertion'
