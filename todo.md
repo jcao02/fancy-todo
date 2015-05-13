@@ -8,8 +8,8 @@
 - [ ] Add help documentation 
 - [ ] Add syntax highlight for new marked items
 - [ ] Add new item when pressing enter
-- [ ] Add syntax highlight for (file:linenr) 
 - [ ] Downgrade current item level using tab
+- [x] on 2015-05-13 16:12:19 | Add syntax highlight for (file:linenr) 
 - [x] on 2015-05-11 12:55:38 | Add new items below current item (and subitems)
 - [x] on 2015-05-10 21:46:32 | Add global sorting
 - [x] on 2015-05-10 21:46:25 | Add "Doing" status

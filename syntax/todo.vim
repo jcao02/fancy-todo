@@ -39,16 +39,18 @@ syn match ItemDate 'on\ \d\{4}-\d\{2}-\d\{2}\s\d\{2}:\d\{2}:\d\{2}\ |' contains=
 syn match ItemDone '\s*-\ \[[x]\].\{-}$' contains=ItemDate,ItemCheckBox,ItemFileName
 syn match ItemFileName '([a-zA-Z_\-.\/]*:\d\+)' contains=NONE
 
-syn match TodoComment '#.\+$' contains=ALL
+syn match TodoHeader '#.\+$' contains=ALL
 
 let b:current_syntax = "todo"
 
 hi def link ItemFileName Special 
 hi def link ItemDate Identifier
 hi def link ItemDone Comment
+hi def link ItemFilename Type
 
-hi def link TodoComment Comment
+hi def link TodoHeader Comment
 " We only define 3 priorities colors
 hi def link ItemPriorA Constant
 hi def link ItemPriorB PreProc
 hi def link ItemPriorC Keyword
+hi def link ItemPriorD Label

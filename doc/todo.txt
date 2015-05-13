@@ -1,4 +1,4 @@
-*todo.txt* Simple .todo .td .done .dn syntax, maps and functions 
+todo.txt    For Vim version 7.4    Last change: 2015 May 12
 
 ===============================================================================
 1. Description
