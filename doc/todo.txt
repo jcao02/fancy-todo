@@ -1,23 +1,49 @@
-todo.txt    For Vim version 7.4    Last change: 2015 May 12
+*fancy-todo-vim.txt* Maps for fancy and readible todo lists 
 
-===============================================================================
-1. Description
-
-This is a plugin to make your todo's files fancier and readible. 
+This is a plugin to make your todo files fancier, readible and easy to customize through maps. 
 Each todo item has the form: 
     [ ] (file:lineno) Item description (for pending tasks)
-    [x] (date time) (file:lineno) Item description (for done tasks)
-===============================================================================
-2. Maps
+    [x] on completion_date completion_time | (file:lineno) Item description (for done tasks)
 
-    <Leader>i : Insert a new item in the current line
-    <Leader>o : Insert a new item in the line below
-    <Leader>O : Insert a new item in the line above
-    <Leader>x : Mark current item (if any) as done inserting the date
-    <Leader>X : Mark current item (if any) as undone removing the date
-    <Leader>s : Sort Items by priority
-    <Leader>u : Increase current item priority (if any). 
-    <Leader>d : Decrease current item priority (if any). 
-    <Leader>a : Tag current item with priority (A)
-    <Leader>b : Tag current item with priority (B)
-    <Leader>c : Tag current item with priority (C)
+===============================================================================
+CONTENTS                                        *FancyTodoContents*
+
+1. Syntax ............................. |FancyTodoSyntax|
+2. Mappings ........................... |FancyTodoMappings|
+
+===============================================================================
+Section 1: Syntax                                             *FancyTodoSyntax*
+
+ * Simple unmarked item: 
+ - [ ] Item description
+
+ * Simple marked item:   
+ - [x] on 2015-05-10 21:53:50 | Item description
+
+ * Simple subitem: 
+ - [ ] Item description
+     - [ ] Subtem description
+
+ * Item with priority A:
+ - [ ] Item description (A)
+
+ * Item with priority Doing (D):
+ - [ ] Item description (D)
+
+ * Item with file and line number (source file reference to the task):
+ - [ ] (foo.cpp:42) Item description
+
+===============================================================================
+Section 2: Mappings                                         *FancyTodoMappings*
+
+All maps are available in insert and normal mode.
+
+    <Leader>i : Insert a new item in the current line. 
+                If there's already an item, it's inserted in the line below
+    <Leader>o : Insert a new subitem to the item in the current line
+    <Leader>x : Toggle the item status (marked or unmarked). Marked items 
+                add the current datetime to the item
+    <Leader>s : Sort Items by priority. Doing priority is the highest followed
+                by alpha numeric order. Done tasks sort after undone tasks.
+    <S-Left>  : Executes folding (zo)
+    <S-Right> : Executes folding (zc)
